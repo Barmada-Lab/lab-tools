@@ -45,7 +45,7 @@ def hdf5ify(src, dest):
             (img_height, img_width) = np.shape(img)
 
         montage_dim = int(config['Montage XY'])
-        layout_indexing = utils.determine_layout_indexing(config["microscope"], montage_dim)
+        layout_indexing = utils.get_layout_indexing(config["microscope"], montage_dim)
 
         for meta in metas:
             group = output.require_group(f"{meta.col}_{meta.row}/{meta.channel}")
