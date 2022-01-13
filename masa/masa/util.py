@@ -1,0 +1,175 @@
+import os
+from collections import defaultdict
+import numpy as np
+from glob import glob
+from PIL import Image
+
+def to8bit(stack):
+    stack = stack.astype(float)
+    min, max = np.min(stack), np.max(stack)
+    stack -= min
+    stack /= (max - min)
+    stack *= 255
+    return stack.astype(np.uint8)
+
+def convertStacks(path, colorDirPairs):
+    # Acquire set of all existing 16-bit stack names.
+    print(f"looking in {path}")
+    stackNames = set(os.path.basename(p) for p in glob(f'{path}/*/*tif'))
+
+    for stackName in stackNames:
+        # Attempt to load each color pair.
+        toComposite = []
+        for (color, directory) in colorDirPairs:
+            stackPath = os.path.join(path, directory, stackName)
+
+            # In the event that the color is paired with None, then set the stack to None as well.
+            if directory is None:
+                toComposite.append(None)
+                continue
+
+            try:
+                img = Image.open(stackPath)
+                stack = np.array(img)
+            except FileNotFoundError:
+                print(f'Could not find {stackPath}. Leaving stack blank.')
+                toComposite.append(None)
+
+            else:
+                # Convert to 8-bit and set for compositing.
+                stack = to8bit(stack)
+                # Check if stack is 2D (a single image) and make 3D.
+                if len(stack.shape) == 2: stack = np.expand_dims(stack, axis=0)
+                toComposite.append(stack)
+
+        # NOTE: Shapes can be different. If this becomes a problem, will need to handle here.
+
+        # Acquire shape of an extant image.
+        shape = [stack.shape for stack in toComposite if stack is not None][0]
+
+        # If two stacks were set to None, then only one channel exists. Copy this channel to the
+        # others so it is set to gray (R = G = B).
+        if sum([1 for s in toComposite if s is None]) == 2:
+            extant = list(filter(lambda s: s is not None, toComposite))[0]
+            for ix, stack in enumerate(toComposite):
+                if stack is None:
+                    toComposite[ix] = extant
+
+        # Check if any single stacks set to None and set them to blank with right shape.
+        # If a single color does not exist, the remaining two colors will still exist.
+        for ix, stack in enumerate(toComposite):
+            if stack is None:
+                toComposite[ix] = np.zeros(shape)
+
+        yield stackName, np.stack(toComposite, axis=1)
+#indir='processed_imgs/stacked', outdir='stacks'
+def makePNGs(input_path, output_path, colorDirPairs):
+    # Make directories to save PNGs and do so.
+    os.makedirs(os.path.join(output_path), exist_ok=True)
+    for stackName, toComposite in convertStacks(input_path, colorDirPairs):
+        print(f"Converting {stackName} to PNG...")
+        for ix, composite in enumerate(toComposite):
+            savePath = os.path.join(output_path, stackName.split('.')[0] + f'_{str(ix)}.png')
+            Image.fromarray(np.moveaxis(composite, 0, -1)).save(savePath)
+
+def findMaxStackLength(path, indir='./static/stacks'):
+    imagepaths = glob(os.path.join(path, indir, "*.png"))
+    # Image paths expected to be of type: */*_[0-9]+.png .
+    return max(int(os.path.basename(fn).split('.')[0].split('_')[-1]) for fn in imagepaths) + 1
+
+# Why does the client need this information? This is not good design. Should be redone.
+def mkClientPathsData(path, indir='./static/stacks'):
+    # Map each well-id to a list of image paths.
+    imagepaths = glob(f'{os.path.join(path, indir)}/*png')
+    idToPaths = defaultdict(list)
+
+    for imagepath in imagepaths:
+        # Remove path information before the input directory.
+        imagepath = imagepath[imagepath.find(indir):]
+        # Image paths expected to be of type: */STACKID_*.png.
+        stackId = '_'.join(os.path.basename(imagepath).split('_')[:-1])
+        idToPaths[stackId].append(imagepath)
+
+    # Sort each image path list to ensure they are traversed in order.
+    for id, paths in idToPaths.items():
+        idToPaths[id] = sorted(paths, key=lambda p : int(os.path.basename(p).split('.')[0].split('_')[-1]))
+
+    # Prepare a list of dicts containing this data.
+    data = [{'id' : stackId, 'fileNames' : paths} for stackId, paths in idToPaths.items()]
+
+    # A well-id may have underscores. Typical well-ids are of form [A-Z][0-9]+, e.g., A01, but well-ids such
+    # as A01_1 have also been used (the corresponding png paths would be A01_1_[0-9]+ , in this case). The sorting
+    # procedure here handles an arbitrary amount of underscore delimiters. It makes the assumption that all
+    # file names will have the same quantity of underscores, and that each term delimited by underscores, except
+    # the first, is an integer.
+
+    total_terms = len(data[0]['id'].split('_'))
+    for i in range(1, total_terms):
+        # It is necessary by the least specific integers first, and then work inwards, so that the final result
+        # is correct.
+        data.sort(key=lambda d : int(d['id'].split('_')[total_terms - i]))
+
+    # Sort by the first number (e.g., the 01 in A01
+    #data.sort(key=lambda d : int(d['id'].split('_')[0][1:]))
+
+    # Finally sort by the first letter (e.g., the A in A01)
+    #data.sort(key=lambda d : d['id'][0])
+
+    # Make a map between the well-id and the list index. This is used when a user wishes to select a well-id by
+    # name.
+    dataMap = {datum['id'] : ix for ix, datum in enumerate(data)}
+
+    return data, dataMap
+
+def mkServerPathsData(clientPaths):
+    return [d['id'] for d in clientPaths]
+
+import os
+import json
+from glob import iglob, glob
+
+
+# Extract instance number.
+try:
+    getNum = lambda path: int(os.path.basename(path)[4:])
+except ValueError:
+    print('Value error')
+
+def getName(path):
+    try:
+        with open(path + '/server/serverSetup.json') as f:
+            data = json.load(f)
+        return data['expName']
+
+    except FileNotFoundError:
+        print('Cannot find file for ' + path + '!')
+        return 'No name found.'
+
+    except:
+        return '???'
+
+def refresh_masa_names(masa_dir):
+    # Find all MASA instances.
+    paths = [p for p in iglob('./masa*') if os.path.isdir(p)]
+    paths = sorted(paths, key=lambda i: getNum(i))
+
+    # Find maximum instance.
+    maxNum = getNum(paths[-1])
+    # Iterate through numbers and indicate whether any instance numbers are missing.
+    names = []
+    count = 1
+    path = paths.pop(0)
+    while True:
+        num = getNum(path)
+        if num == count:
+            names.append(getName(path))
+            try: path = paths.pop(0)
+            except IndexError:
+                break
+        else:
+            names.append('---')
+
+        count += 1
+
+    with open('exp-names.json', 'w') as f:
+        json.dump({'names': names}, f)
