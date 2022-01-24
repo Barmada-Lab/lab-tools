@@ -1,5 +1,6 @@
 import subprocess
 import shutil
+import time
 import sys
 import os
 
@@ -27,6 +28,7 @@ def parse_args(args: list):
                  open(os.path.join(directory, "error.log"), "wb") as stderr:
                 subprocess.Popen(['python', "server.py"],
                                  cwd=directory,
+                                 env={"PATH":os.getenv("PATH", "")},
                                  stdout=stdout,
                                  stderr=stderr)
         for directory in glob("/data/masa/masa*/server"):
