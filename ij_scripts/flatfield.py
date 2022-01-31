@@ -1,11 +1,14 @@
-#@ File background (label='Background',		description='Background image to subtract from images',  style='file')
+#@ File background (label='Background',	    description='Background image to subtract from images',  style='file')
 #@ File images 	   (label='Base directory', description='The base directory of images to flatfield', style='directory')
-#@ File output     (label='Output',			description='Output directory for flatfielded images',	 style='directory')
+#@ File output     (label='Output',         description='Output directory for flatfielded images',   style='directory')
 #@ ConvertService convertService
 #@ DatasetIOService ds
 #@ DatasetService dds 
 #@ UIService ui
 #@ ImageJ ij
+#
+# Subtracts a given background image from a directory of images, writing the
+# results to a mirrored directory structure in the output directory.
 
 from glob import glob
 

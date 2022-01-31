@@ -42,12 +42,6 @@ do
   output="$OUT$(basename $path).tar.gz"
   while : ; do
     if [-f $output]; then
-      # Turbo has this fun feature where files become immutable after they're
-      # written to. So we sometimes run into issues where a handle is dropped and
-      # reacquired in the middle of gzipping an archive. And then we can't write
-      # any more.
-      #
-      # Hence the rm.
       rm -f $output
     fi
 
