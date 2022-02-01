@@ -40,15 +40,16 @@ do
   dirname=$(dirname $path)
   basename=$(basename $path)
   output="$OUT$(basename $path).tar.gz"
+  if [-f $output]; then
+    continue
+  fi
   while : ; do
-    if [-f $output]; then
-      rm -f $output
-    fi
-
     tar -I pigz -cvf $output -C $dirname $basename
 
     if [ $? -eq 0 ]; then
       break
+    else
+      rm -f $output
     fi
   done
 done
