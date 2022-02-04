@@ -16,6 +16,7 @@ def main():
     generate_parser = subparsers.add_parser(GENERATE_CMD, help="Generate a background image")
     generate_parser.add_argument("inputs", nargs="+", type=pathlib.Path, help="Input images")
     generate_parser.add_argument("output", type=pathlib.Path, help="Output path for generated image")
+    generate_parser.add_argument("-r", "--recursive", action="store_true", help="Use all files in input directory")
     generate_parser.add_argument("-f", "--force", action="store_true", help="Force overwrite")
     generate_parser.add_argument("--display", action="store_true", help="Display the generated image and exit")
 
@@ -33,6 +34,7 @@ def main():
         core.generate_background(
             paths=args.inputs,
             output=args.output,
+            recursive=args.recursive,
             display=args.display)
     elif cmd == SUBTRACT_CMD:
         core.subtract(

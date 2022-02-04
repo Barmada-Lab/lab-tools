@@ -5,10 +5,24 @@ import os
 
 from PIL import Image
 
-def generate_background(paths: list[pathlib.Path], output: pathlib.Path,
-        display=False, force=False):
+def rlist_files(path, ftype):
+    for root, _, files in os.walk(path):
+        for _file in filter(lambda f: f.endswith(ftype), files):
+            yield os.path.join(root, _file)
 
-    images = np.array([np.array(Image.open(path)) for path in paths])
+def generate_background(paths: list[pathlib.Path], output: pathlib.Path,
+                        display=False, force=False, recursive=False):
+
+    files = []
+    for input_path in paths:
+        if os.path.isdir(input_path) and recursive:
+            files += list(rlist_files(input_path, "tif"))
+        elif os.path.isfile(input_path):
+            files.append(input_path)
+        else:
+            print(f"{input_path} does not exist")
+
+    images = np.array([np.array(Image.open(path)) for path in files])
     median = np.median(images, axis=0, overwrite_input=True)
 
     if display:
@@ -47,9 +61,8 @@ def subtract(background_path, input_path, output_base, ftype, display=False, for
     if os.path.isfile(input_path):
         paths.append(input_path)
     elif os.path.isdir(input_path):
-        for root, _, files in os.walk(input_path):
-            for _file in filter(lambda f: f.endswith(ftype), files):
-                paths.append(os.path.join(root, _file))
+        for path in rlist_files(input_path,ftype):
+            paths.append(path)
 
     # Reinterpret images as int32 to avoid underflow when subtracting
     background = np.array(Image.open(background_path)).astype(np.int32)
