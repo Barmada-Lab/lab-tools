@@ -1,8 +1,11 @@
 [tool.poetry]
 name = "flatfield"
-version = "0.1.0"
+version = "1.0.0"
 description = ""
 authors = ["Jacob Waksmacki <jwaksmac@med.umich.edu>"]
+
+[tool.poetry.scripts]
+flatfield = "flatfield.__main__:main"
 
 [tool.poetry.dependencies]
 python = "^3.10"
