@@ -8,7 +8,7 @@ import argparse
 import sys
 import os
 
-root_parser = argparse.ArgumentParser(description="ARchive Tool")
+root_parser = argparse.ArgumentParser(description="Bart ARchive Tool")
 subparsers = root_parser.add_subparsers(required=True, dest="command")
 
 auth_parser = subparsers.add_parser("auth", help="Authorize an application")

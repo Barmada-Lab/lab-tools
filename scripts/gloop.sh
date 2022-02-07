@@ -40,10 +40,12 @@ do
   dirname=$(dirname $path)
   basename=$(basename $path)
   output="$OUT$(basename $path).tar.gz"
-  if [-f $output]; then
+  if [ -f $output ]; then
+    echo "skipping $output; manually remove this file if you would like to re-tar it."
     continue
   fi
   while : ; do
+
     tar -I pigz -cvf $output -C $dirname $basename
 
     if [ $? -eq 0 ]; then
