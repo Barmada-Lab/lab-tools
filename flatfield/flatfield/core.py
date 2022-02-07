@@ -17,28 +17,34 @@ def generate_background(paths: list[pathlib.Path], output: pathlib.Path,
     for input_path in paths:
         if os.path.isdir(input_path) and recursive:
             files += list(rlist_files(input_path, "tif"))
+        elif os.path.isdir(input_path) and not recursive:
+            print(f"{input_path} is a directory and --recursive is not specified; skipping.")
         elif os.path.isfile(input_path):
             files.append(input_path)
         else:
             print(f"{input_path} does not exist")
+            return
 
-    images = np.array([np.array(Image.open(path)) for path in files])
+    if not display and not force and os.path.exists(output):
+        while selection := input(f"{output} exists; overwrite? confirm [y/N]"):
+            if selection.lower() in ["\n", "n"]:
+                return
+            elif selection.lower() == "y":
+                break
+            else:
+                print("I'm afraid I can't do that, Dave.")
+
+    def open_img(path):
+        print(path)
+        np.array(Image.open(path))
+
+    images = np.array([open_img(path) for path in files])
     median = np.median(images, axis=0, overwrite_input=True)
 
     if display:
         plt.imshow(median)
         plt.show()
         return
-
-    if not force and os.path.exists(output):
-        while selection := input(f"{output} exists; overwrite? confirm [y/N]"):
-            match selection.lower():
-                case "\n" | "n":
-                    return
-                case "y":
-                    break
-                case _:
-                    print("I'm afraid I can't do that, Dave.")
 
     Image.fromarray(median.astype(np.uint16)).save(output)
 
@@ -64,7 +70,7 @@ def subtract(background_path, input_path, output_base, ftype, display=False, for
         for path in rlist_files(input_path,ftype):
             paths.append(path)
 
-    # Reinterpret images as int32 to avoid underflow when subtracting
+    # Reinterpret images as int32 to prevent underflow when subtracting
     background = np.array(Image.open(background_path)).astype(np.int32)
 
     for path in paths:
