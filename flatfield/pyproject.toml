@@ -8,7 +8,7 @@ authors = ["Jacob Waksmacki <jwaksmac@med.umich.edu>"]
 flatfield = "flatfield.__main__:main"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.9.10"
 numpy = "^1.22.2"
 Pillow = "^9.0.1"
 matplotlib = "^3.5.1"
