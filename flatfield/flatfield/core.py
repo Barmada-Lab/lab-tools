@@ -36,7 +36,7 @@ def generate_background(paths: list[pathlib.Path], output: pathlib.Path,
 
     def open_img(path):
         print(path)
-        np.array(Image.open(path))
+        return np.array(Image.open(path))
 
     images = np.array([open_img(path) for path in files])
     median = np.median(images, axis=0, overwrite_input=True)

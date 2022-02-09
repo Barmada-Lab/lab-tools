@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "flatfield"
-version = "1.1.1"
+version = "1.1.2"
 description = ""
 authors = ["Jacob Waksmacki <jwaksmac@med.umich.edu>"]
 
