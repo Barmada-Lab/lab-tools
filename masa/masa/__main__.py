@@ -13,7 +13,7 @@ def print_usage(program_name):
     print("commands: {up, down, deploy}")
 
 def print_deploy_usage(program_name):
-    print(f"Usage: masa SOURCE_PATH MASA_IDX")
+    print(f"Usage: masa deploy SOURCE_PATH MASA_IDX")
     print(f"Example: {program_name} g:/mbiera0024 11")
 
 def parse_args(args: list):
