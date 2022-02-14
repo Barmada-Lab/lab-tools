@@ -2,7 +2,7 @@ import os
 from collections import defaultdict
 import numpy as np
 from glob import glob
-from PIL import Image
+from skimage import io
 
 def to8bit(stack):
     stack = stack.astype(float)
@@ -29,18 +29,17 @@ def convertStacks(path, colorDirPairs):
                 continue
 
             try:
-                img = Image.open(stackPath)
-                stack = np.array(img)
+                stack = io.imread(stackPath)
             except FileNotFoundError:
                 print(f'Could not find {stackPath}. Leaving stack blank.')
                 toComposite.append(None)
+                continue
 
-            else:
-                # Convert to 8-bit and set for compositing.
-                stack = to8bit(stack)
-                # Check if stack is 2D (a single image) and make 3D.
-                if len(stack.shape) == 2: stack = np.expand_dims(stack, axis=0)
-                toComposite.append(stack)
+            # Convert to 8-bit and set for compositing.
+            stack = to8bit(stack)
+            # Check if stack is 2D (a single image) and make 3D.
+            if len(stack.shape) == 2: stack = np.expand_dims(stack, axis=0)
+            toComposite.append(stack)
 
         # NOTE: Shapes can be different. If this becomes a problem, will need to handle here.
 
@@ -70,25 +69,27 @@ def makePNGs(input_path, output_path, colorDirPairs):
         print(f"Converting {stackName} to PNG...")
         for ix, composite in enumerate(toComposite):
             savePath = os.path.join(output_path, stackName.split('.')[0] + f'_{str(ix)}.png')
-            Image.fromarray(np.moveaxis(composite, 0, -1)).save(savePath)
+            print(f"Saving to {savePath}")
+            io.imsave(savePath, np.moveaxis(composite, 0, -1))
 
-def findMaxStackLength(path, indir='./static/stacks'):
-    imagepaths = glob(os.path.join(path, indir, "*.png"))
+def findMaxStackLength(path):
+    imagepaths = glob(os.path.join(path, "*.png"))
     # Image paths expected to be of type: */*_[0-9]+.png .
     return max(int(os.path.basename(fn).split('.')[0].split('_')[-1]) for fn in imagepaths) + 1
 
 # Why does the client need this information? This is not good design. Should be redone.
-def mkClientPathsData(path, indir='./static/stacks'):
+def mkClientPathsData(path):
     # Map each well-id to a list of image paths.
-    imagepaths = glob(f'{os.path.join(path, indir)}/*png')
+    imagepaths = glob(os.path.join(path, '*.png'))
     idToPaths = defaultdict(list)
 
     for imagepath in imagepaths:
         # Remove path information before the input directory.
-        imagepath = imagepath[imagepath.find(indir):]
         # Image paths expected to be of type: */STACKID_*.png.
         stackId = '_'.join(os.path.basename(imagepath).split('_')[:-1])
-        idToPaths[stackId].append(imagepath)
+        idToPaths[stackId].append(imagepath.replace(path,"./static/stacks/"))
+
+    print(idToPaths)
 
     # Sort each image path list to ensure they are traversed in order.
     for id, paths in idToPaths.items():

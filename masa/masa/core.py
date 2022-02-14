@@ -43,7 +43,7 @@ def deploy(args):
 
     print("converting PNGs...")
     # Create data.
-    tif_path = os.path.join(input_path,"processed_imgs","stacked")
+    tif_path = os.path.join(input_path, "processed_imgs", "stacked")
     png_path = os.path.join(masa_path, "data", "stacks")
     util.makePNGs(tif_path, png_path, colorDirPairs)
     print("done converting PNGs.")
@@ -54,8 +54,8 @@ def deploy(args):
     roidir = f'/{expName}-rois'
 
     # Search the client image filenames for the maximum stack length in the dataset.
-    maxStackLength = util.findMaxStackLength(input_path)
-    stackNames, stackIdMap = util.mkClientPathsData(input_path)
+    maxStackLength = util.findMaxStackLength(png_path)
+    stackNames, stackIdMap = util.mkClientPathsData(png_path)
     stackIds = util.mkServerPathsData(stackNames)
     serverInput = {  'expName' : expName,
                      'stackdir' : '/static/stacks',
