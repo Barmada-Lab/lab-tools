@@ -1,6 +1,7 @@
 import subprocess
 import argparse
 import pathlib
+import time
 import shutil
 import sys
 import os
@@ -49,7 +50,8 @@ def up_handler(args):
                              stderr=stderr)
     for directory in glob("/data/masa/masa*/server"):
         start_server(directory)
-        start_server("/home/www-data/masa-cc")
+    time.sleep(5) # waiting for servers to actually be up and discoverable to masa-cc
+    start_server("/home/www-data/masa-cc")
 
 def down_handler(args):
     subprocess.run(["pkill", "-f", "server.py"])
