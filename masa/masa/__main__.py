@@ -78,7 +78,7 @@ def deploy_handler(args):
         raise Exception("Unhandled exception")
 
 def main():
-    root = argparse.ArgumentParser("masa", description="masa management service")
+    root = argparse.ArgumentParser("masa", description="masa management cli")
     subparsers = root.add_subparsers(dest='cmd')
     subparsers.add_parser("up")
     subparsers.add_parser("down")
