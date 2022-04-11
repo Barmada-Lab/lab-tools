@@ -2,7 +2,7 @@
 name = "common"
 version = "0.1.0"
 description = ""
-authors = ["kerowak <boiwaq@gmail.com>"]
+authors = ["Kerowak <boiwaq@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9,<3.11"

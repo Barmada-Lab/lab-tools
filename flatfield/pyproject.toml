@@ -2,7 +2,7 @@
 name = "flatfield"
 version = "1.1.3"
 description = ""
-authors = ["Jacob Waksmacki <jwaksmac@med.umich.edu>"]
+authors = ["Kerowak <boiwaq@gmail.com>"]
 
 [tool.poetry.scripts]
 flatfield = "flatfield.__main__:main"

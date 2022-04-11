@@ -2,7 +2,7 @@
 name = "bart"
 version = "1.0"
 description = ""
-authors = ["Jacob Waksmacki <jwaksmac@med.umich.edu>"]
+authors = ["Kerowak <boiwaq@gmail.com>"]
 
 [tool.poetry.scripts]
 art = "bart.__main__:main"

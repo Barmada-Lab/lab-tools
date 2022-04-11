@@ -2,7 +2,7 @@
 name = "masa"
 version = "1.0.2"
 description = ""
-authors = ["Jacob Waksmacki <jwaksmac@med.umich.edu>"]
+authors = ["Kerowak <boiwaq@gmail.com>"]
 
 [tool.poetry.scripts]
 masa = 'masa.__main__:main'
