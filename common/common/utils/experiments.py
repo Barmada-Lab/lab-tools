@@ -1,0 +1,98 @@
+from collections import defaultdict
+from datetime import datetime
+from datetime import date
+import pathlib
+
+import string
+import glob
+import csv
+import os
+import re
+from typing import Counter
+
+from common import ImgMeta, Channel
+from common.types import Exposure, MFSpec, WellSpec
+from common.utils.legacy import parse_datetime
+
+def extract_meta(path: pathlib.Path) -> ImgMeta:
+    """
+    Extract image metadata from a standard experiment path
+    e.g: experiment_root/raw_imgs/RFP/T1/col_01/A01_01.tif
+    """
+
+    pattern = r"""# Verbose regex
+        (?P<channel>(GFP)|(RFP)|(Cy5)|(white_light)|(DAPI))/ # Pick out the channel
+        T(?P<time>\d+)/                                      # Pick out the time
+        col_(?P<col>\d+)/                                    # pick out the row
+        (?P<row>[a-z])\d+_(?P<montage_idx>\d{2}).tif         # Pick out the row and montage index from the file name
+    """
+
+    search = re.search(pattern, path.__str__(), re.IGNORECASE | re.VERBOSE)
+    if search is None:
+        raise Exception("No match found for regex")
+
+    return ImgMeta(
+        Channel[search.group("channel")],
+        datetime.fromtimestamp(int(search.group("time"))),
+        int(search.group("col")),
+        string.ascii_lowercase.index(search.group("row").lower()),
+        int(search.group("montage_idx"))
+    )
+
+
+def read_mfile(path: pathlib.Path) -> MFSpec:
+    with open(path) as f:
+        lines = f.readlines()
+
+    def tokenize(line: str) -> list[str]:
+        return line.split(",")
+
+    def deduplicate(arr) -> list[str]:
+        seen = defaultdict(lambda: 0)
+        counter = Counter(arr)
+        dedup = []
+        for x in arr:
+            if counter[x] == 1:
+                dedup.append(x)
+            else:
+                count = seen[x]
+                dedup.append(f"{x}-{count}")
+                seen[x] += 1
+        return dedup
+
+    def assoc(fields_str: str, attrs_str: str) -> dict[str, str]:
+        fields = deduplicate(tokenize(fields_str))
+        attrs = tokenize(attrs_str)
+        return dict(zip(fields, attrs))
+
+    gen_spec = assoc(lines[0], lines[1])
+    well_specs = [assoc(lines[3], line) for line in lines[4:]]
+
+    # TODO: BREADCRUMB - test this and make sure that it parses CSVs correctly
+
+    name = gen_spec["PlateID"]
+    t_transfect = parse_datetime(gen_spec["Transfection date"], gen_spec["Transfection time"])
+    microscope = gen_spec["microscope"]
+    binning = gen_spec["binning"]
+    montage_dim = int(gen_spec["Montage XY"])
+    montage_overlap = 1.0 / int(gen_spec["Tile overlap"])
+
+    def build_wellspec(well_spec: dict[str,str]) -> WellSpec:
+        label = well_spec["Well"]
+        wells = []
+        for idx in range(4):
+            fp = well_spec[f"FP{idx+1}"]
+            if fp not in Channel: continue
+            exposure = int(well_spec[f"Exposure (ms)-{idx}"])
+            wells.append(Exposure(Channel[fp], exposure))
+        return WellSpec(label, wells)
+
+    return MFSpec(
+        name,
+        t_transfect,
+        microscope,
+        binning,
+        montage_dim,
+        montage_overlap,
+        [build_wellspec(well_spec) for well_spec in well_specs]
+    )
