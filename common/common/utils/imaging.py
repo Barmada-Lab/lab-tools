@@ -11,7 +11,7 @@ def get_layout_indexing(scope_name: str, dimension: int) -> np.ndarray:
     6 5 4
     7 8 9
     """
-    default = np.arange(dimension**2).reshape(dimension,dimension) + 1
+    default = np.arange(dimension**2).reshape(dimension,dimension)
     snake_by_rows = default.copy()
     snake_by_rows[1::2] = default[1::2,::-1] # reverse every other row
 
@@ -38,6 +38,12 @@ def get_layout_indexing(scope_name: str, dimension: int) -> np.ndarray:
             6 5 4
             1 2 3 '''
         return snake_by_rows[::-1]
+
+    elif scope_name.lower() in {'lux'}:
+        ''' 9 8 7
+            4 5 6
+            3 2 1 '''
+        return np.flip(snake_by_rows)
 
     else:
         raise Exception("no matching microscope")

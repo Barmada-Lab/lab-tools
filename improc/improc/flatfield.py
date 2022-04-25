@@ -1,12 +1,10 @@
-from argparse import ArgumentError
 import numpy as np
 import pathlib
-import os
 
 from PIL import Image
 
 def background_from_paths(paths: list[pathlib.Path]) -> np.ndarray:
-    images = np.array(np.array(Image.open(path)) for path in paths)
+    images = np.array([np.array(Image.open(path)) for path in paths])
     return np.median(images, axis=0, overwrite_input=True)
 
 def trunc_sub(a1: np.ndarray, a2: np.ndarray) -> np.ndarray:

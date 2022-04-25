@@ -10,7 +10,7 @@ art = "bart.__main__:main"
 [tool.poetry.dependencies]
 python = "^3.9"
 python-dotenv = "^0.19.2"
-globus-sdk = "^3.2.1"
+globus-sdk = "^3.7.0"
 joblib = "^1.1.0"
 
 [tool.poetry.dev-dependencies]

@@ -72,12 +72,11 @@ def subtract(background_path, input_path, output_base, ftype, display=False, for
         for path in rlist_files(input_path,ftype):
             paths.append(path)
 
-    # Reinterpret images as int32 to prevent underflow when subtracting
-    background = np.array(Image.open(background_path)).astype(np.int32)
+    background = np.array(Image.open(background_path))
 
     for path in paths:
         print(f"subtracting {path}")
-        img = np.array(Image.open(path))
+        img = np.array(Image.open(path)).astype(background.dtype)
         subtracted = flatfield.trunc_sub(img, background)
 
         mirror_path = os.path.relpath(path, input_path) if path != input_path else os.path.basename(path)
@@ -137,3 +136,6 @@ def main():
             force=args.force,)
     else:
         sys.exit(1)
+
+if __name__ == "__main__":
+    main()

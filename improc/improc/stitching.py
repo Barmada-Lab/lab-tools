@@ -5,13 +5,13 @@ from scipy.sparse import linalg
 
 import numpy as np
 
-def stitch(microscope: str, *images: np.ndarray, t_o=0.1):
+def stitch(microscope: str, images: list[np.ndarray], t_o=0.1):
     #+TAG:DIRTY
     # Assumption made that stitched images all have square geometry.
     dim = int(np.sqrt(len(images)))
     layout = get_layout_indexing(microscope, dim)
     # Flatten layout sequence and get permuted sequence of paths.
-    perm_paths = itemgetter(*(layout.reshape(-1)-1))(images)
+    perm_paths = itemgetter(*(layout.reshape(-1)))(images)
     # Reshape images into correct 2D locations but with each image being a 1D array.
     imgarray = np.array(perm_paths)
     # Assuming all images are of same size, reshape into larger array with images in place.

@@ -1,19 +1,14 @@
-from posixpath import basename
 from typing import Iterable, Tuple
 import globus_sdk
 
 from uuid import uuid4
-from globus_sdk.services import transfer
 from joblib import Parallel, delayed
 
 from glob import glob
 import shutil
 import subprocess
-import time
 import sys
 import os
-
-from .helpers import DynamicStr
 
 REFRESH_TOKEN = "refresh_token"
 ACCESS_TOKEN = "access_token"
@@ -82,7 +77,6 @@ def push_experiments(client: globus_sdk.TransferClient, *experiment_dirs):
 
     client.submit_transfer(transfer)
     print("Submitted transfer.")
-
 
 def pull_experiments(client: globus_sdk.TransferClient, output_dir, *experiment_names):
     transfer = globus_sdk.TransferData(

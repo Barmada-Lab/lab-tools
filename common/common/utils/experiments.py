@@ -1,12 +1,8 @@
 from collections import defaultdict
 from datetime import datetime
-from datetime import date
 import pathlib
 
 import string
-import glob
-import csv
-import os
 import re
 from typing import Counter
 

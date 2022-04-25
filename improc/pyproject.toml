@@ -12,11 +12,13 @@ python = "^3.9,<3.11"
 numpy = "^1.22.2"
 Pillow = "^9.0.1"
 matplotlib = "^3.5.1"
-common = {path = "../common", develop = true}
 scipy = "^1.8.0"
+tifffile = "^2022.4.8"
+common = "" # this is necessary for including common in improc's build outputs
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
+common = {path = "../common", develop = true}
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
