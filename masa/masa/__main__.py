@@ -43,7 +43,7 @@ def up_handler(args):
     def start_server(directory):
         with open(os.path.join(directory, "access.log"), "wb") as stdout, \
              open(os.path.join(directory, "error.log"), "wb") as stderr:
-            subprocess.Popen(['python', "server.py"],
+            subprocess.Popen([sys.executable, "server.py"],
                              cwd=directory,
                              env={"PATH":os.getenv("PATH", "")},
                              stdout=stdout,
@@ -69,7 +69,7 @@ def deploy_handler(args):
             "masa_name": f"masa{masa_idx}",
             "exp_name": os.path.basename(path),
             "data_loc": os.path.join(os.path.sep, "data", "masa"),
-            "server_loc" : os.path.join(os.path.sep, "home", "rmiguez")
+            "server_loc" : os.path.join(os.path.sep, "home", "www-data")
         }
         check_targets(arg_dict["data_loc"], arg_dict["masa_name"], arg_dict["exp_name"])
         core.deploy(arg_dict)
@@ -87,10 +87,12 @@ def main():
     deploy_parser.add_argument("masa idx", type=int)
 
     args = root.parse_args()
-    match args.cmd:
-        case "up": up_handler(args)
-        case "down": down_handler(args)
-        case "deploy": deploy_handler(args)
+    if args.cmd == "up":
+        up_handler(args)
+    elif args.cmd == "down":
+        down_handler(args)
+    elif "deploy":
+        deploy_handler(args)
 
 if __name__ == "__main__":
     main()
