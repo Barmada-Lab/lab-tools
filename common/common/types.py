@@ -1,27 +1,21 @@
 from dataclasses import dataclass
 
 from datetime import datetime
-from enum import Enum
+from enum import Enum, EnumMeta
 import pathlib
-
-class Channel(str, Enum):
-    GFP = "GFP"
-    RFP = "RFP"
-    Cy5 = "Cy5"
-    DAPI = "DAPI"
-    WhiteLight = "white_light"
 
 @dataclass
 class ImgMeta:
+    path: pathlib.Path
     channel: str
-    time: datetime
+    time_point: int
     col: int
     row: int
     montage_idx: int
 
 @dataclass
 class Exposure:
-    channel: Channel
+    channel: str
     exposure_ms: int
 
 @dataclass
@@ -33,6 +27,7 @@ class WellSpec:
 class MFSpec:
     name: str
     t_transfect: datetime
+    objective: str
     microscope: str
     binning: str
     montage_dim: int

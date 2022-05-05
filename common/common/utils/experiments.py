@@ -6,9 +6,17 @@ import string
 import re
 from typing import Counter
 
-from common import ImgMeta, Channel
-from common.types import Exposure, MFSpec, WellSpec
+from common.types import Exposure, MFSpec, WellSpec, ImgMeta
 from common.utils.legacy import parse_datetime
+
+def try_load_mfile(path: pathlib.Path) -> MFSpec:
+    experiment_name = path.name
+    glob = f"*{experiment_name}.csv"
+    try:
+        csv = next(path.glob(glob))
+    except StopIteration:
+        raise Exception(f'No csv of the form "{glob}" found in {path}')
+    return read_mfile(csv)
 
 def extract_meta(path: pathlib.Path) -> ImgMeta:
     """
@@ -28,20 +36,20 @@ def extract_meta(path: pathlib.Path) -> ImgMeta:
         raise Exception("No match found for regex")
 
     return ImgMeta(
-        Channel[search.group("channel")],
-        datetime.fromtimestamp(int(search.group("time"))),
-        int(search.group("col")),
-        string.ascii_lowercase.index(search.group("row").lower()),
-        int(search.group("montage_idx"))
+        path = path,
+        channel = search.group("channel"),
+        time_point = int(search.group("time")),
+        col = int(search.group("col")),
+        row = string.ascii_lowercase.index(search.group("row").lower()),
+        montage_idx = int(search.group("montage_idx"))
     )
-
 
 def read_mfile(path: pathlib.Path) -> MFSpec:
     with open(path) as f:
         lines = f.readlines()
 
     def tokenize(line: str) -> list[str]:
-        return line.split(",")
+        return [token.strip() for token in line.split(",")]
 
     def deduplicate(arr) -> list[str]:
         seen = defaultdict(lambda: 0)
@@ -62,12 +70,13 @@ def read_mfile(path: pathlib.Path) -> MFSpec:
         return dict(zip(fields, attrs))
 
     gen_spec = assoc(lines[0], lines[1])
-    well_specs = [assoc(lines[3], line) for line in lines[4:]]
 
-    # TODO: BREADCRUMB - test this and make sure that it parses CSVs correctly
+    print(gen_spec)
+    well_specs = [assoc(lines[3], line) for line in lines[4:]]
 
     name = gen_spec["PlateID"]
     t_transfect = parse_datetime(gen_spec["Transfection date"], gen_spec["Transfection time"])
+    objective = gen_spec["Objective"]
     microscope = gen_spec["microscope"]
     binning = gen_spec["binning"]
     montage_dim = int(gen_spec["Montage XY"])
@@ -78,17 +87,22 @@ def read_mfile(path: pathlib.Path) -> MFSpec:
         wells = []
         for idx in range(4):
             fp = well_spec[f"FP{idx+1}"]
-            if fp not in Channel: continue
-            exposure = int(well_spec[f"Exposure (ms)-{idx}"])
-            wells.append(Exposure(Channel[fp], exposure))
+            if fp.lower() not in {"cy5", "gfp", "rfp", "dapi", "white_light"}:
+                continue
+            try:
+                exposure = int(well_spec[f"Exposure (ms)-{idx}"])
+            except:
+                continue
+            wells.append(Exposure(fp, exposure))
         return WellSpec(label, wells)
 
     return MFSpec(
-        name,
-        t_transfect,
-        microscope,
-        binning,
-        montage_dim,
-        montage_overlap,
-        [build_wellspec(well_spec) for well_spec in well_specs]
+        name=name,
+        t_transfect = t_transfect,
+        objective = objective,
+        microscope = microscope,
+        binning = binning,
+        montage_dim = montage_dim,
+        montage_overlap = montage_overlap,
+        wells = [build_wellspec(well_spec) for well_spec in well_specs]
     )
