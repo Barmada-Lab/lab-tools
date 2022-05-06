@@ -45,8 +45,8 @@ def extract_meta(path: pathlib.Path) -> ImgMeta:
     )
 
 def read_mfile(path: pathlib.Path) -> MFSpec:
-    with open(path) as f:
-        lines = f.readlines()
+    with open(path, "rt") as f:
+        lines = [line.replace("\ufeff", "") for line in f.readlines()]
 
     def tokenize(line: str) -> list[str]:
         return [token.strip() for token in line.split(",")]
