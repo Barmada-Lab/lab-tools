@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Cleanup script automagically
+# Automagically clean and archive things
 PARAMS=""
 
 CPUS=1
@@ -29,18 +29,8 @@ done # set positional arguments in their proper place
 
 eval set -- "$PARAMS"
 
-prep() {
-    find $1 -name *.tif -exec convert '{}' -compress lzw '{}' \;
-    find $1 -maxdepth 2 -name processed_imgs -type d -mtime +30 -prune -exec rm -rf '{}' \;
-    echo "Finished prepping $1"
-}
-
-# gotta export and call from a subshell because xargs won't pick up defined
-# funtions for some reason
-export -f prep
-
 for path in $PARAMS
 do
-    ls $path | xargs -l -P $CPUS bash -c 'prep $@' _
-    find $path -maxdepth 0 -type d -mtime +60 | xargs art push
+    find $path -mindepth 2 -maxdepth 2 -name processed_imgs -type d -mtime +30 | xargs -l -P $CPUS rm -rf '{}' \;
+    find $path -mindepth 1 -maxdepth 1 -type d -mtime +60 | xargs art push
 done
