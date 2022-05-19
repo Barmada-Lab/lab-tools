@@ -9,6 +9,8 @@ from typing import Counter
 from common.types import Exposure, MFSpec, WellSpec, ImgMeta
 from common.utils.legacy import parse_datetime
 
+import charset_normalizer
+
 def try_load_mfile(path: pathlib.Path) -> MFSpec:
     experiment_name = path.name
     glob = f"*{experiment_name}.csv"
@@ -45,8 +47,9 @@ def extract_meta(path: pathlib.Path) -> ImgMeta:
     )
 
 def read_mfile(path: pathlib.Path) -> MFSpec:
-    with open(path, "rt") as f:
-        lines = [line.replace("\ufeff", "") for line in f.readlines()]
+    # There doesn't seem to be a good way to automatically detect character encoding
+    # using vanilla python... so we use this
+    lines = str(charset_normalizer.from_path(path).best()).split("\n")
 
     def tokenize(line: str) -> list[str]:
         return [token.strip() for token in line.split(",")]
