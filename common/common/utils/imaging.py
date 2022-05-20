@@ -39,7 +39,7 @@ def get_layout_indexing(scope_name: str, dimension: int) -> np.ndarray:
             1 2 3 '''
         return snake_by_rows[::-1]
 
-    elif scope_name.lower() in {'lux'}:
+    elif scope_name.lower().startswith('lux'):
         ''' 9 8 7
             4 5 6
             3 2 1 '''
