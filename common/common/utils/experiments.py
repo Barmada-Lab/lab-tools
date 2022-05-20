@@ -74,8 +74,13 @@ def read_mfile(path: pathlib.Path) -> MFSpec:
 
     gen_spec = assoc(lines[0], lines[1])
 
-    print(gen_spec)
-    well_specs = [assoc(lines[3], line) for line in lines[4:]]
+    def valid_line(line):
+        return not all([token.strip() == "" for token in line.split(",")])
+
+    if not valid_line(lines[3]):
+        raise Exception("malformed csv; fourth line should contain keys for well configs")
+
+    well_specs = [assoc(lines[3], line) for line in lines[4:] if valid_line(line)]
 
     name = gen_spec["PlateID"]
     t_transfect = parse_datetime(gen_spec["Transfection date"], gen_spec["Transfection time"])
