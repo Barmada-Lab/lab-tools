@@ -8,6 +8,7 @@ authors = ["Kerowak <boiwaq@gmail.com>"]
 python = "^3.9"
 numpy = "^1.21.5"
 charset-normalizer = "^2.0.12"
+PyYAML = "^6.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

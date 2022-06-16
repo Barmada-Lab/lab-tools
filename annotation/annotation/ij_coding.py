@@ -1,4 +1,7 @@
 import struct
+import zipfile
+import json
+import os
 
 from .types import Roi
 
@@ -31,3 +34,26 @@ def encode(roi: Roi, id: str) -> bytes:
     for c in name:
         roi_bytes += struct.pack('>h', ord(c))
     return roi_bytes
+
+def decode(roi_zip_path, outpath=''):
+    #+TAG: DIRTY
+    with zipfile.ZipFile(roi_zip_path) as roi_zip:
+        fnames = roi_zip.namelist()
+        for ix, fname in enumerate(fnames):
+            data = roi_zip.read(fname)
+            version = struct.unpack('>B', data[5:6])
+            roi_type = int(struct.unpack('>B', data[6:7])[0])
+            top = struct.unpack('>h', data[8:10])[0]
+            left = struct.unpack('>h', data[10:12])[0]
+            bottom = struct.unpack('>h', data[12:14])[0]
+            right = struct.unpack('>h', data[14:16])[0]
+
+            # Ensure output directory exists.
+            os.makedirs(outpath, exist_ok=True)
+
+            # This is an oval type. Will be taken to be a circle.
+            if roi_type in {2, 8}:
+                x, y = left, top
+                r = (right - left) / 2
+                data = {'status':'alive', 'data':[{'x':int(x+r),'y':int(y+r), 'r':r}], 'id':ix, 'lastIxAlive':0}
+                json.dump(data, open(f'{outpath}/{outpath}-{ix}.json', 'w'))
