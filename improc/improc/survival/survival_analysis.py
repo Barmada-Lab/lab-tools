@@ -26,12 +26,15 @@ from .output import Exporter
 
 
 class Tracker():
-    def __init__(self, exp_name, outdir, threshold_multiplier, magnification, microscope, binning, fiddle):
+    def __init__(self, exp_name, outdir, threshold_multiplier, magnification, microscope, binning, cell_min_dia_um, cell_max_dia_um, max_travel_um):
         self.exp_name = exp_name
         self.binned = False if binning[0] == '1' else True
         self.outdir = outdir
         self.threshold_multiplier = threshold_multiplier
-        self.um_to_px = lambda m: transforms.microns_to_pixels(m, magnification, microscope, binning, fiddle)
+        self.um_to_px = lambda m: transforms.microns_to_pixels(m, magnification, microscope, binning, 1.0)
+        self.cell_min_dia_um = cell_min_dia_um
+        self.cell_max_dia_um = cell_max_dia_um
+        self.max_travel_um = max_travel_um
 
     def _label_and_slice(self, img: np.ndarray):
         '''Label contiguous binary patches numerically and make list of smallest parallelpipeds that contain each.'''
@@ -193,8 +196,8 @@ class Tracker():
         #Build list of ROIs, then build list of Neurons and return
 
         # Area filter.
-        area_min = self.um_to_px(10) ** 2
-        area_max = self.um_to_px(150) ** 2
+        area_min = self.um_to_px(self.cell_min_dia_um) ** 2
+        area_max = self.um_to_px(self.cell_max_dia_um) ** 2
         A = cv2.contourArea
         candidates = filter(lambda cand: A(cand[1]) > area_min and A(cand[1]) < area_max, candidates)
 
@@ -237,7 +240,7 @@ class Tracker():
 
         # Begin processing image and building candidate neurons.
         candidates = []
-        area_min = self.um_to_px(10) ** 2
+        area_min = self.um_to_px(self.cell_min_dia_um) ** 2
         tophat_kernel_dim = self.um_to_px(40)
         tophat_kernel=np.ones((tophat_kernel_dim,) * 2)
         for ix, s in enumerate(expanded_slices):
@@ -281,7 +284,7 @@ class Tracker():
         tree = KDTree(candidate_centroids + unassigned_centroids)
 
         # Maximum distance that the (n+1)st centroid can be from the nth one if it's to be believed that it's the same neuron.
-        max_dist = self.um_to_px(50)
+        max_dist = self.um_to_px(self.max_travel_um)
 
         # Keep a set of candidate indices chosen. Will be used to determine which have not been selected.
         candidate_ixs_chosen = set()
@@ -308,8 +311,6 @@ class Tracker():
             candidate_ixs_chosen.add(centroid_ix)
 
         unassigned_candidates = self._extend_roi_series(img, timepoint, living_neurons, ID_to_candidate)
-
-
 
         '''
         for ix, centroid in enumerate(centroids):
@@ -480,7 +481,15 @@ def run_cox_analysis(config, outdir):
     subprocess.call(['rscript', scriptpath], stdout=cox_analysis_results_file)
 
 class SurvivalAnalyzer:
-    def __init__(self, workdir):
+    def __init__(self, workdir, cell_min_dia_um=10, cell_max_dia_um=150, max_travel_um=50):
+        """
+        Automated cell counting for experiments that have been stitched + stacked
+
+        Args:
+            cell_min_dia_um (float): minimum diameter for detecting cells (in micrometers)
+            cell_max_dia_um (float): maximum diameter for detecting cells (in micrometers)
+            max_travel_um (float): maximum distance a cell may move between frames (in micrometers)
+        """
         os.makedirs(join(workdir, 'analysis'), exist_ok=True)
         self.outdir = join(workdir, 'analysis')
         self.config = makeconfig.mfile_to_config(workdir, self.outdir)
@@ -489,7 +498,10 @@ class SurvivalAnalyzer:
         self.binning = self.config['experiment']['imaging']['binning']
         self.fiddle = self.config['experiment']['imaging']['fiddle']
         primary_channel = self.config['experiment']['imaging']['primary_channel']
-        self.imgdir = join(workdir, 'processed_imgs', 'stacked', primary_channel) 
+        self.imgdir = join(workdir, 'processed_imgs', 'stacked', primary_channel)
+        self.cell_min_dia_um = cell_min_dia_um
+        self.cell_max_dia_um = cell_max_dia_um
+        self.max_travel_um = max_travel_um
 
         os.makedirs(join(workdir, 'analysis'), exist_ok=True)
 
@@ -508,7 +520,7 @@ class SurvivalAnalyzer:
         
     def analyze(self, threshold_multiplier=1.0):
         exp_name = self.config['experiment']['name']
-        tr = Tracker(exp_name, self.outdir, threshold_multiplier, self.magnification, self.microscope, self.binning, self.fiddle)
+        tr = Tracker(exp_name, self.outdir, threshold_multiplier, self.magnification, self.microscope, self.binning, self.cell_min_dia_um, self.cell_max_dia_um, self.max_travel_um)
         gen = self.readin_stacks()
         pool = Pool()
         #This may need to be a function of memory
