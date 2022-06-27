@@ -26,7 +26,7 @@ from .output import Exporter
 
 
 class Tracker():
-    def __init__(self, exp_name, outdir, threshold_multiplier, magnification, microscope, binning, cell_min_dia_um, cell_max_dia_um, max_travel_um):
+    def __init__(self, exp_name, outdir, threshold_multiplier, magnification, microscope, binning, cell_min_dia_um, cell_max_dia_um, max_travel_um, death_circularity_threshold):
         self.exp_name = exp_name
         self.binned = False if binning[0] == '1' else True
         self.outdir = outdir
@@ -35,6 +35,7 @@ class Tracker():
         self.cell_min_dia_um = cell_min_dia_um
         self.cell_max_dia_um = cell_max_dia_um
         self.max_travel_um = max_travel_um
+        self.death_circularity_threshold = death_circularity_threshold
 
     def _label_and_slice(self, img: np.ndarray):
         '''Label contiguous binary patches numerically and make list of smallest parallelpipeds that contain each.'''
@@ -198,8 +199,10 @@ class Tracker():
         # Area filter.
         area_min = self.um_to_px(self.cell_min_dia_um) ** 2
         area_max = self.um_to_px(self.cell_max_dia_um) ** 2
-        A = cv2.contourArea
-        candidates = filter(lambda cand: A(cand[1]) > area_min and A(cand[1]) < area_max, candidates)
+        def sizeFilter(candidate):
+            area = cv2.contourArea(candidate[1])
+            return area_min < area < area_max
+        candidates = filter(sizeFilter, candidates)
 
         try: 
             rois = [ROI(img, centroid, contour) for centroid, contour in candidates]
@@ -367,7 +370,7 @@ class Tracker():
                 prev_max = prev_roi.max
 
                 # Death detection.
-                if (cand_circularity > prev_circularity or cand_circularity > .9) and cand_area < prev_area and cand_max < .8 * prev_max:
+                if (cand_circularity > prev_circularity or cand_circularity > self.death_circularity_threshold) and cand_area < prev_area and cand_max < .8 * prev_max:
                     neuron.last_tp = timepoint - 1
                     neuron.censored = 1
                     neuron.death_cause = 'unfound'
@@ -481,7 +484,7 @@ def run_cox_analysis(config, outdir):
     subprocess.call(['rscript', scriptpath], stdout=cox_analysis_results_file)
 
 class SurvivalAnalyzer:
-    def __init__(self, workdir, cell_min_dia_um=10, cell_max_dia_um=150, max_travel_um=50):
+    def __init__(self, workdir, cell_min_dia_um=10, cell_max_dia_um=150, max_travel_um=50, death_circularity_threshold=0.9):
         """
         Automated cell counting for experiments that have been stitched + stacked
 
@@ -489,6 +492,7 @@ class SurvivalAnalyzer:
             cell_min_dia_um (float): minimum diameter for detecting cells (in micrometers)
             cell_max_dia_um (float): maximum diameter for detecting cells (in micrometers)
             max_travel_um (float): maximum distance a cell may move between frames (in micrometers)
+            death_circularity_threshold (float): circularity measurement above which cells are considered dead. valid between 0 and 1
         """
         os.makedirs(join(workdir, 'analysis'), exist_ok=True)
         self.outdir = join(workdir, 'analysis')
@@ -502,6 +506,7 @@ class SurvivalAnalyzer:
         self.cell_min_dia_um = cell_min_dia_um
         self.cell_max_dia_um = cell_max_dia_um
         self.max_travel_um = max_travel_um
+        self.death_circularity_threshold = death_circularity_threshold
 
         os.makedirs(join(workdir, 'analysis'), exist_ok=True)
 
@@ -520,7 +525,7 @@ class SurvivalAnalyzer:
         
     def analyze(self, threshold_multiplier=1.0):
         exp_name = self.config['experiment']['name']
-        tr = Tracker(exp_name, self.outdir, threshold_multiplier, self.magnification, self.microscope, self.binning, self.cell_min_dia_um, self.cell_max_dia_um, self.max_travel_um)
+        tr = Tracker(exp_name, self.outdir, threshold_multiplier, self.magnification, self.microscope, self.binning, self.cell_min_dia_um, self.cell_max_dia_um, self.max_travel_um, self.death_circularity_threshold)
         gen = self.readin_stacks()
         pool = Pool()
         #This may need to be a function of memory
