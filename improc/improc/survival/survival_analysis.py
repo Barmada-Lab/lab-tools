@@ -26,9 +26,10 @@ from .output import Exporter
 
 
 class Tracker():
-    def __init__(self, exp_name, outdir, threshold_multiplier, magnification, microscope, binning, cell_min_dia_um, cell_max_dia_um, max_travel_um, death_circularity_threshold):
+    def __init__(self, exp_name, outdir, threshold_multiplier, magnification, microscope, binning, cell_min_dia_um, cell_max_dia_um, max_travel_um, death_circularity_threshold, annotate):
         self.exp_name = exp_name
         self.binned = False if binning[0] == '1' else True
+        self.annotate = annotate
         self.outdir = outdir
         self.threshold_multiplier = threshold_multiplier
         self.um_to_px = lambda m: transforms.microns_to_pixels(m, magnification, microscope, binning, 1.0)
@@ -430,9 +431,6 @@ class Tracker():
                     break
                 self._assign_rois(img, timepoint, neurons, candidates)
 
-        # Save annotated stack.
-        annotate_path = join(self.outdir, 'annotated')
-        os.makedirs(annotate_path, exist_ok=True)
 
         neurons = [neuron for neuron in neurons if not neuron.excluded]
 
@@ -444,9 +442,14 @@ class Tracker():
         for ix, neuron in enumerate(neurons):
             neuron.ID = ix
 
-        rois = {n.ID : n.roi_data_as_dict(crop_val)['contours'] for n in neurons}
-        annotated = annotate.annotate_survival(orig_stack, rois)
-        tifffile.imsave(f'{annotate_path}/{well}.tif', annotated, photometric="rgb")
+        if self.annotate:
+            # Save annotated stack.
+            annotate_path = join(self.outdir, 'annotated')
+            os.makedirs(annotate_path, exist_ok=True)
+
+            rois = {n.ID : n.roi_data_as_dict(crop_val)['contours'] for n in neurons}
+            annotated = annotate.annotate_survival(orig_stack, rois)
+            tifffile.imsave(f'{annotate_path}/{well}.tif', annotated, photometric="rgb")
         
         return (well, neurons)
 
@@ -484,7 +487,7 @@ def run_cox_analysis(config, outdir):
     subprocess.call(['rscript', scriptpath], stdout=cox_analysis_results_file)
 
 class SurvivalAnalyzer:
-    def __init__(self, workdir, cell_min_dia_um=10, cell_max_dia_um=150, max_travel_um=50, death_circularity_threshold=0.9):
+    def __init__(self, workdir, cell_min_dia_um=10, cell_max_dia_um=150, max_travel_um=50, death_circularity_threshold=0.9, annotate=True):
         """
         Automated cell counting for experiments that have been stitched + stacked
 
@@ -495,6 +498,7 @@ class SurvivalAnalyzer:
             death_circularity_threshold (float): circularity measurement above which cells are considered dead. valid between 0 and 1
         """
         os.makedirs(join(workdir, 'analysis'), exist_ok=True)
+        self.annotate = annotate
         self.outdir = join(workdir, 'analysis')
         self.config = makeconfig.mfile_to_config(workdir, self.outdir)
         self.microscope = self.config['experiment']['imaging']['microscope']
@@ -525,7 +529,7 @@ class SurvivalAnalyzer:
         
     def analyze(self, threshold_multiplier=1.0):
         exp_name = self.config['experiment']['name']
-        tr = Tracker(exp_name, self.outdir, threshold_multiplier, self.magnification, self.microscope, self.binning, self.cell_min_dia_um, self.cell_max_dia_um, self.max_travel_um, self.death_circularity_threshold)
+        tr = Tracker(exp_name, self.outdir, threshold_multiplier, self.magnification, self.microscope, self.binning, self.cell_min_dia_um, self.cell_max_dia_um, self.max_travel_um, self.death_circularity_threshold, self.annotate)
         gen = self.readin_stacks()
         pool = Pool()
         #This may need to be a function of memory
