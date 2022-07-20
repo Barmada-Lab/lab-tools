@@ -26,7 +26,7 @@ from .output import Exporter
 
 
 class Tracker():
-    def __init__(self, exp_name, outdir, threshold_multiplier, magnification, microscope, binning, cell_min_dia_um, cell_max_dia_um, max_travel_um, death_circularity_threshold, annotate):
+    def __init__(self, exp_name, outdir, threshold_multiplier, magnification, microscope, binning, cell_min_dia_um, cell_max_dia_um, max_travel_um, death_circularity_threshold, annotate, cell_type):
         self.exp_name = exp_name
         self.binned = False if binning[0] == '1' else True
         self.annotate = annotate
@@ -37,6 +37,7 @@ class Tracker():
         self.cell_max_dia_um = cell_max_dia_um
         self.max_travel_um = max_travel_um
         self.death_circularity_threshold = death_circularity_threshold
+        self.cell_type = cell_type
 
     def _label_and_slice(self, img: np.ndarray):
         '''Label contiguous binary patches numerically and make list of smallest parallelpipeds that contain each.'''
@@ -371,7 +372,7 @@ class Tracker():
                 prev_max = prev_roi.max
 
                 # Death detection.
-                if (cand_circularity > prev_circularity or cand_circularity > self.death_circularity_threshold) and cand_area < prev_area and cand_max < .8 * prev_max:
+                if self.cell_type.lower() != "ipsc" and (cand_circularity > prev_circularity or cand_circularity > self.death_circularity_threshold) and cand_area < prev_area and cand_max < .8 * prev_max:
                     neuron.last_tp = timepoint - 1
                     neuron.censored = 1
                     neuron.death_cause = 'unfound'
@@ -448,7 +449,7 @@ class Tracker():
             os.makedirs(annotate_path, exist_ok=True)
 
             rois = {n.ID : n.roi_data_as_dict(crop_val)['contours'] for n in neurons}
-            annotated = annotate.annotate_survival(orig_stack, rois)
+            annotated = annotate.annotate_survival(orig_stack.astype(np.uint16), rois)
             tifffile.imsave(f'{annotate_path}/{well}.tif', annotated, photometric="rgb")
         
         return (well, neurons)
@@ -487,7 +488,7 @@ def run_cox_analysis(config, outdir):
     subprocess.call(['rscript', scriptpath], stdout=cox_analysis_results_file)
 
 class SurvivalAnalyzer:
-    def __init__(self, workdir, cell_min_dia_um=10, cell_max_dia_um=150, max_travel_um=50, death_circularity_threshold=0.9, annotate=True):
+    def __init__(self, workdir, cell_min_dia_um=10, cell_max_dia_um=150, max_travel_um=50, death_circularity_threshold=0.9, annotate=True, cell_type="rat"):
         """
         Automated cell counting for experiments that have been stitched + stacked
 
@@ -511,6 +512,7 @@ class SurvivalAnalyzer:
         self.cell_max_dia_um = cell_max_dia_um
         self.max_travel_um = max_travel_um
         self.death_circularity_threshold = death_circularity_threshold
+        self.cell_type = cell_type
 
         os.makedirs(join(workdir, 'analysis'), exist_ok=True)
 
@@ -529,7 +531,7 @@ class SurvivalAnalyzer:
         
     def analyze(self, threshold_multiplier=1.0):
         exp_name = self.config['experiment']['name']
-        tr = Tracker(exp_name, self.outdir, threshold_multiplier, self.magnification, self.microscope, self.binning, self.cell_min_dia_um, self.cell_max_dia_um, self.max_travel_um, self.death_circularity_threshold, self.annotate)
+        tr = Tracker(exp_name, self.outdir, threshold_multiplier, self.magnification, self.microscope, self.binning, self.cell_min_dia_um, self.cell_max_dia_um, self.max_travel_um, self.death_circularity_threshold, self.annotate, self.cell_type)
         gen = self.readin_stacks()
         pool = Pool()
         #This may need to be a function of memory

@@ -12,7 +12,7 @@ def compute_centroid(contour):
 
 def _transform_stack(stack: np.ndarray) -> np.ndarray:
     '''Enhance contrast and convert input stack to RGB for drawing purposes.'''
-    stack = transforms.enhance_contrast(stack)
+    #stack = transforms.enhance_contrast(stack)
     if len(stack.shape) == 2: 
         stack = stack.reshape(1, *stack.shape)
     return transforms.to_rgb_stack(stack)
