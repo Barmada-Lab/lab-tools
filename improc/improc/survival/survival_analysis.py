@@ -73,39 +73,19 @@ class Tracker():
         '''Process image.'''
         img = np.copy(img)
 
-        self._threshold(img)
+        img = (img.astype(np.uint16) - img.min()) * 255.0 / (img.max() - img.min()).astype(np.uint8)
 
         disk = skimage.morphology.disk(2)
-        # Use minimum filter in place.
-        img = scipy.ndimage.filters.minimum_filter(img, footprint=disk)
+        img = scipy.ndimage.minimum_filter(img, footprint=disk)
 
-        # To further separate ROIs, use erosion to eliminate noise and processes.
-        erode_kernel_dim = self.um_to_px(3)
-        erode_kernel = np.ones((erode_kernel_dim,) * 2)
-        eroded = morphology.binary_erosion(img, erode_kernel)
-
-        # Use eroded image as mask to select pixels in original image.
-        img[eroded == 0] = 0
+        erode_kernel = np.ones((3,) * 2)
+        img[skimage.morphology.binary_erosion(img, erode_kernel) == 0] = 0
 
         rimg = skimage.filters.roberts(img)
-        #Values will be between 0 and 1 now; scale and set to 16-bit
-        rimg = (rimg * 2 ** 16).astype(np.uint16)
+        img = (rimg * 2 ** 8).astype(np.uint8)
 
-        # Apply scaled Sobel operators to image to enhance rois.
-        sobx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3, scale=1)
-        soby = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=3, scale=1)
-        img = np.hypot(sobx, soby).astype(np.uint16)
-
-        img = (img.astype(np.uint32) + rimg.astype(np.uint32))
-        np.clip(img, 0, 2 ** 16 - 1, out=img)
-        img = img.astype(np.uint16)
-
-        utils.nonzero_percentile_threshold(img, 40)
-        if not self.binned:
-            # Use minimum filter in place.
-            img = scipy.ndimage.filters.minimum_filter(img, size=(2,2))
-
-        return img
+        img = cv2.adaptiveThreshold(img, 2**8, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 21, 3)
+        return img.astype(np.uint16) * 2**8
 
     def _find_graded_somas(self, img):
 
