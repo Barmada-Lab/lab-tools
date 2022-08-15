@@ -7,6 +7,8 @@ SCRIPT_PATH=$SCRIPT_DIR/$SCRIPT_FILE
 setup() {
     cd $SCRIPT_DIR/notebooks
     poetry update
+    module load R
+    poetry run R -e "install.packages('IRkernel', repos='http://cran.us.r-project.org'); IRkernel::installspec()"
     poetry run ./nbkgen.sh
 }
 
