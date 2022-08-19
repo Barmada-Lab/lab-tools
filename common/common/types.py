@@ -1,17 +1,6 @@
 from dataclasses import dataclass
 
 from datetime import datetime
-from enum import Enum, EnumMeta
-import pathlib
-
-@dataclass
-class ImgMeta:
-    path: pathlib.Path
-    channel: str
-    time_point: int
-    col: int
-    row: int
-    montage_idx: int
 
 @dataclass
 class Exposure:
@@ -19,9 +8,15 @@ class Exposure:
     exposure_ms: int
 
 @dataclass
+class DrugInfo:
+    drug_label: str
+    drug_conc: float | None
+
+@dataclass
 class WellSpec:
     label: str
     exposures: list[Exposure]
+    drugs: list[DrugInfo]
 
 @dataclass
 class MFSpec:

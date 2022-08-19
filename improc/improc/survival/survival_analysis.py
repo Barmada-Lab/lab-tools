@@ -26,13 +26,13 @@ from .output import Exporter
 
 
 class Tracker():
-    def __init__(self, exp_name, outdir, threshold_multiplier, magnification, microscope, binning, cell_min_dia_um, cell_max_dia_um, max_travel_um, death_circularity_threshold, annotate, cell_type):
+    def __init__(self, exp_name, outdir, threshold_multiplier, magnification, microscope, binning, cell_min_dia_um, cell_max_dia_um, max_travel_um, death_circularity_threshold, annotate, cell_type, fiddle):
         self.exp_name = exp_name
         self.binned = False if binning[0] == '1' else True
         self.annotate = annotate
         self.outdir = outdir
         self.threshold_multiplier = threshold_multiplier
-        self.um_to_px = lambda m: transforms.microns_to_pixels(m, magnification, microscope, binning, 1.0)
+        self.um_to_px = lambda m: transforms.microns_to_pixels(m, magnification, microscope, binning, fiddle)
         self.cell_min_dia_um = cell_min_dia_um
         self.cell_max_dia_um = cell_max_dia_um
         self.max_travel_um = max_travel_um
@@ -468,7 +468,7 @@ def run_cox_analysis(config, outdir):
     subprocess.call(['rscript', scriptpath], stdout=cox_analysis_results_file)
 
 class SurvivalAnalyzer:
-    def __init__(self, workdir, cell_min_dia_um=10, cell_max_dia_um=150, max_travel_um=50, death_circularity_threshold=0.9, annotate=True, cell_type="rat"):
+    def __init__(self, workdir, cell_min_dia_um=10, cell_max_dia_um=150, max_travel_um=50, death_circularity_threshold=0.9, annotate=True, cell_type="rat", fiddle=1.0):
         """
         Automated cell counting for experiments that have been stitched + stacked
 
@@ -485,7 +485,7 @@ class SurvivalAnalyzer:
         self.microscope = self.config['experiment']['imaging']['microscope']
         self.magnification = self.config['experiment']['imaging']['magnification']
         self.binning = self.config['experiment']['imaging']['binning']
-        self.fiddle = self.config['experiment']['imaging']['fiddle']
+        self.fiddle = fiddle
         primary_channel = self.config['experiment']['imaging']['primary_channel']
         self.imgdir = join(workdir, 'processed_imgs', 'stacked', primary_channel)
         self.cell_min_dia_um = cell_min_dia_um
@@ -511,7 +511,7 @@ class SurvivalAnalyzer:
         
     def analyze(self, threshold_multiplier=1.0):
         exp_name = self.config['experiment']['name']
-        tr = Tracker(exp_name, self.outdir, threshold_multiplier, self.magnification, self.microscope, self.binning, self.cell_min_dia_um, self.cell_max_dia_um, self.max_travel_um, self.death_circularity_threshold, self.annotate, self.cell_type)
+        tr = Tracker(exp_name, self.outdir, threshold_multiplier, self.magnification, self.microscope, self.binning, self.cell_min_dia_um, self.cell_max_dia_um, self.max_travel_um, self.death_circularity_threshold, self.annotate, self.cell_type, self.fiddle)
         gen = self.readin_stacks()
         pool = Pool()
         #This may need to be a function of memory
