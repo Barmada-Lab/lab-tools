@@ -1,7 +1,7 @@
 import pathlib
 
-from common.experiments.experiment import Experiment
-from common.experiments.legacy import LegacyLoader
+from .experiment import Experiment
+from .legacy import LegacyLoader
 
 def load_experiment(path: pathlib.Path) -> Experiment | None:
     """

@@ -1,15 +1,15 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from common.types import MFSpec
-
+from .image import Image
+from ..types import MFSpec
 from .dataset import Dataset
 
 
 @dataclass
 class Experiment:
     label: str
-    datasets: list[Dataset]
+    raw: list[Image]
     mfile: MFSpec | None
 
 class ExperimentLoader(ABC):

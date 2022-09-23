@@ -1,13 +1,10 @@
-import os
-import io
-from glob import glob
 from os.path import join
-import sys
+from glob import glob
 
 import pandas as pd
-import yaml
 
-import traceback
+import yaml
+import io
 
 def homogenize_comma_quantity(mfile_path):
     # Read-in Mfile.

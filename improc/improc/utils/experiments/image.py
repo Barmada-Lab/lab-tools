@@ -4,7 +4,7 @@ from typing import Any, Type, TypeVar
 
 import numpy as np
 
-from common.experiments.tags import Tag
+from .tags import Tag
 
 
 @dataclass
