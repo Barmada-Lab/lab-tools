@@ -1,9 +1,9 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Iterator, Type
+from typing import Any, Iterator, Type
 
-from common.experiments.image import Image
-from common.experiments.tags import Tag
+from .image import Image
+from .tags import Tag
 
 @dataclass
 class Dataset:
@@ -22,14 +22,14 @@ def filter_tags(images: list[Image], *ts: Type[Tag]) -> Iterator[Image]:
             # If all the tags are present in the image, we yield it.
             yield img
 
-def aggregate(images: list[Image], t: Type[Tag]) -> list[list[Image]]:
+def aggregate(images: list[Image], t: Type[Tag]) -> dict[Any, list[Image]]:
     """ Aggregate based on similarity of a given tag """
     groups = defaultdict(list[Image])
     for img in images:
         group_tag = img.get_tag(t)
         groups[group_tag].append(img)
 
-    return list(groups.values())
+    return groups
 
 def contra_aggregate(images: list[Image], t: Type[Tag]) -> list[list[Image]]:
     """ Aggregate based on dissimilarity of a given tag """

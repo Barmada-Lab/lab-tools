@@ -6,24 +6,10 @@ authors = ["kerowak <boiwaq@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.11"
-jupyterlab = "^3.3.3"
-ipywidgets = "^7.7.0"
-scikit-image = "^0.19.2"
+jupyterlab = "^3.4.8"
 ipyfilechooser = "^0.6.0"
-m2stitch = "^0.6.0"
-common = {path = "../common", develop=true}
-improc = {path = "../improc", develop=true}
-ilmatic = {path = "../ilmatic", develop=true}
-ipympl = "^0.9.1"
-pystackreg = "^0.2.6"
-napari = "^0.4.16"
-PyQt5 = "^5.15.7"
-h5py = "^3.7.0"
-pybasic-illumination-correction = "^0.1.1"
-
-[tool.poetry.dev-dependencies]
-pytest = "^5.2"
+improc = { path = "../improc/", develop = true }
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

@@ -8,24 +8,35 @@ authors = ["kerowak <boiwaq@gmail.com>"]
 flatfield = "improc.flatfield_cli:main"
 
 [tool.poetry.dependencies]
-python = "^3.9,<3.11"
+python = ">=3.10,<3.11"
 numpy = "^1.22.2"
 Pillow = "^9.0.1"
 matplotlib = "^3.5.1"
 scipy = "^1.8.0"
 tifffile = "^2022.4.8"
-common = "" # this is necessary for including common in improc's build outputs
 opencv-python = "^4.6.0"
 scikit-image = "^0.19.3"
 scikit-learn = "^1.1.1"
 multiprocess = "^0.70.13"
 imagecodecs = "^2022.2.22"
 pystackreg = "^0.2.6"
+charset-normalizer = "^2.1.1"
+PyYAML = "^6.0"
+zarr = "^2.13.0"
+pandas = "^1.5.0"
+tqdm = "^4.64.1"
+dask = {extras = ["complete"], version = "^2022.9.1"}
+h5py = "^3.7.0"
+napari = {extras = ["pyside2"], version = "^0.4.16"}
+read-roi = "^1.6.0"
+Shapely = "^1.8.4"
+
+[tool.pyright]
+reportPrivateImportUsage = false
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
-common = {path = "../common", develop = true}
-annotation = {path = "../annotation", develop = true}
+
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

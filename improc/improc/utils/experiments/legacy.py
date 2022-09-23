@@ -13,8 +13,8 @@ from .dataset import Dataset
 from .experiment import Experiment, ExperimentLoader
 from .image import Image, ImgMeta
 
-from common.types import DrugInfo, Exposure, MFSpec, WellSpec
-from common.utils.legacy import parse_datetime
+from ..types import DrugInfo, Exposure, MFSpec, WellSpec
+from ..legacy import parse_datetime
 from . import tags
 
 """
@@ -52,17 +52,10 @@ class LegacyLoader(ExperimentLoader):
             raise Exception(f'No csv of the form "{glob}" found in {self.path}')
         return read_mfile(csv)
 
-    def _load_datasets(self, mfile: MFSpec) -> list[Dataset]:
+    def _load_datasets(self, mfile: MFSpec) -> list[Image]:
         raw_imgs: list[Image] = [LegacyImage(path, extract_meta_rawpath(mfile, path)) for path in self.path.glob("raw_imgs/**/*.tif")]
         processed_imgs: list[Image] = []
-        for path in self.path.glob("processed_imgs/**/*.tif"):
-            meta = extract_meta_processed(mfile, path)
-            if meta is not None:
-                processed_imgs.append(LegacyImage(path, meta))
-        return [
-            Dataset("longitudinal", raw_imgs),
-            Dataset("processed", processed_imgs)
-        ]
+        return raw_imgs
 
     def load(self) -> Experiment:
         mfile = self._try_load_mfile()
@@ -74,69 +67,7 @@ class LegacyLoader(ExperimentLoader):
         )
 
 
-def extract_meta_processed(mfile: MFSpec, path: pathlib.Path) -> ImgMeta | None:
-    name_pattern = r"""processed_imgs/(?P<name>(stitched)|(stacked)|(masks))/"""
-    search = re.search(name_pattern, path.__str__(), re.IGNORECASE | re.VERBOSE)
-    if search is None:
-        return None
-    name = search.group("name")
-    if name == "stitched":
-        pattern = r"""
-            (?P<channel>(GFP)|(RFP)|(Cy5)|(white_light)|(DAPI))/ # Pick out the channel
-            T(?P<timepoint>\d+)/                                 # Pick out the time
-        """
-        search = re.search(pattern, path.__str__(), re.IGNORECASE | re.VERBOSE)
-        if search is None:
-            return None
-
-        label = path.name.removesuffix(".tif")
-        timepoint = int(search.group("timepoint"))
-        channel = search.group("channel")
-        exposures = next(filter(lambda x: x.label == label, mfile.wells)).exposures
-        exposure = next(filter(lambda x: x.channel == channel, exposures)).exposure_ms
-        return ImgMeta([
-            tags.Channel(channel),
-            tags.Timepoint(timepoint),
-            tags.Vertex(label),
-            tags.Exposure(exposure),
-            tags.Mosaic(mfile.montage_dim, mfile.montage_overlap)
-        ])
-
-    elif name == "stacked":
-        pattern = r"^(?P<vertex>[A-Z][0-9]+)_(?P<channel>(GFP)|(RFP)|(Cy5)|(white_light)|(DAPI)).tif$"
-        search = re.search(pattern, path.name, re.IGNORECASE)
-        if search is None:
-            return None
-
-        channel = search.group("channel")
-        label = search.group("vertex")
-        exposures = next(filter(lambda x: x.label == label, mfile.wells)).exposures
-        exposure = next(filter(lambda x: x.channel == channel, exposures)).exposure_ms
-        return ImgMeta([
-            tags.Channel(channel),
-            tags.Stack(tags.StackIndexing("TYX")),
-            tags.Vertex(label),
-            tags.Exposure(exposure),
-            tags.Mosaic(mfile.montage_dim, mfile.montage_overlap)
-        ])
-
-    elif name == "masks":
-        pattern = r"/(?P<vertex>[A-Z][0-9]+)_(?P<mask_type>(object-predictions)|(object-tracking)).tif"
-        search = re.search(pattern, path.__str__(), re.IGNORECASE | re.VERBOSE)
-        if search is None:
-            return None
-
-        vertex = search.group("vertex")
-        mask_type = search.group("mask_type")
-        return ImgMeta([
-            tags.Vertex(vertex),
-            tags.Mask(mask_type)
-        ])
-
-    return None
-
-
-def extract_meta_rawpath(mfile: MFSpec, path: pathlib.Path) -> ImgMeta:
+def extract_meta_rawpath(mfile: MFSpec, path: pathlib.Path) -> ImgMeta :
     """
     Extract image metadata from a standard experiment path
     e.g: experiment_root/raw_imgs/RFP/T1/col_01/A01_01.tif
@@ -151,7 +82,7 @@ def extract_meta_rawpath(mfile: MFSpec, path: pathlib.Path) -> ImgMeta:
 
     search = re.search(pattern, path.__str__(), re.IGNORECASE | re.VERBOSE)
     if search is None:
-        return None
+        raise Exception(f"Failed to parse path {path}")
 
     montage_idx = int(search.group("montage_idx"))
     row, col = search.group("row"), search.group("col")
@@ -163,10 +94,10 @@ def extract_meta_rawpath(mfile: MFSpec, path: pathlib.Path) -> ImgMeta:
 
     return ImgMeta([
         tags.Channel(channel),
-        tags.Timepoint(timepoint),
+        tags.Timepoint(timepoint - 1),
         tags.Vertex(label),
         tags.Exposure(exposure),
-        tags.MosaicTile(mfile.montage_dim, mfile.montage_overlap, montage_idx)
+        tags.MosaicTile(mfile.montage_dim, mfile.montage_overlap, montage_idx - 1)
     ])
 
 
