@@ -5,7 +5,6 @@ import dask.array as da
 
 from numpy import indices
 from tifffile import tifffile
-from .experiments.experiment import Experiment
 
 from pathlib import Path
 
@@ -13,15 +12,10 @@ from tqdm import tqdm
 import zarr
 import numpy as np
 
-from .experiments import tags, dataset
-from .experiments.image import Image
-from . import improc_json
-from . import arr_experiment as exp
-
 from multiprocessing import Pool
 from itertools import chain
 
-def _write_arr(group: zarr.Group, vertex: str, images: list[Image]):
+def _write_arr(group: zarr.Group, vertex: str, images: list[RawImage]):
     # ahahahahahahahaha good luck
     #
     #
@@ -101,14 +95,24 @@ def _write_arr(group: zarr.Group, vertex: str, images: list[Image]):
     dataset.attrs["channel_meta"] = exp.ChannelMeta([exp.Channel.GFP])
     dataset.attrs["planar_meta"] = exp.PlanarMeta(0.5)
 
+def aggregate(images: list[Image], t: Type[tags.Tag]) -> dict[Any, list[Image]]:
+    """ Aggregate based on similarity of a given tag """
+    groups = defaultdict(list[Image])
+    for img in images:
+        group_tag = img.get_tag(t)
+        groups[group_tag].append(img)
+
+    return groups
+
 def zarrify(experiment: Experiment, output_path: Path):
     improc_json.monkeypatch_global_encoder()
     group = zarr.open_group(output_path, mode="w")
     raw_images = group.create_group("raw_images", overwrite=True)
-    image_sets = dataset.aggregate(experiment.raw, tags.Vertex)
-    with Pool() as p:
-        for vertex, images in tqdm(image_sets.items(), desc=f"creating zarr", position=0):
-            _write_arr(raw_images, vertex.label, images)
+    image_sets = aggregate(experiment.raw, tags.Vertex)
+
+    for vertex, images in tqdm(image_sets.items(), desc=f"creating zarr", position=0):
+        _write_arr(raw_images, vertex.label, images)
+
     improc_json.restore_original_encoder()
 
 def load(zarr_path: Path):
