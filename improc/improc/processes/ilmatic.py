@@ -1,14 +1,27 @@
 from pathlib import Path
-from .util import snapshot, get_new
 
+from dataclasses import dataclass
+import pathlib
 import subprocess
+from typing import Iterable
+
+@dataclass(eq=True, frozen=True)
+class FileSnapshot:
+    path: pathlib.Path
+    modified_time: int
+
+def snapshot(paths: Iterable[pathlib.Path]) -> set[FileSnapshot]:
+    return set([FileSnapshot(path, path.stat().st_mtime_ns) for path in paths])
+
+def get_new(before: set[FileSnapshot], after: set[FileSnapshot]) -> list[pathlib.Path]:
+    return sorted(snap.path for snap in after - before)
 
 def run_ilastik(ilastik_bin: Path, project: Path, *args: str):
     cmd = [
         ilastik_bin,
         "--headless",
         "--readonly",
-        "--project", {project},
+        "--project", project,
     ] + list(args)
     proc = subprocess.run(cmd)
     proc.check_returncode()
@@ -66,7 +79,7 @@ def run_tracker(ilastik_bin, classifier_path: Path, images: list[Path], pix_pred
 
     args = [
         '--output_format', 'hdf5',
-        "--output_filename_format", output_base / "{nickname}.h5"
+        "--output_filename_format", output_base / "{nickname}.h5",
         "--raw_data", *images,
         "--prediction_maps", *pix_preds,
     ]
@@ -80,9 +93,9 @@ def run_tracker(ilastik_bin, classifier_path: Path, images: list[Path], pix_pred
     return get_new(initial, final)
 
 def run_survival_pipeline(experiment_path: Path, classifier_path: Path, ilastik_bin, run_prob=True, run_obj=True, track=True):
-    pixel_classifier = experiment_path / "pixel_classifier.ilp"
-    object_classifier = experiment_path / "object_classifier.ilp"
-    tracker = experiment_path / "tracker.ilp"
+    pixel_classifier = classifier_path / "pixel_classifier.ilp"
+    object_classifier = classifier_path / "object_classifier.ilp"
+    tracker = classifier_path / "tracker.ilp"
 
     if not pixel_classifier.exists():
         raise FileNotFoundError(f"No pixel classifier at path {pixel_classifier}")
@@ -104,7 +117,7 @@ def run_survival_pipeline(experiment_path: Path, classifier_path: Path, ilastik_
             raw_imgs,
             pixel_probabilities_base)
     else:
-        pixel_probabilities = list(pixel_probabilities_base.glob("*.h5"))
+        pixel_probabilities = sorted(pixel_probabilities_base.glob("*.h5"))
 
     if run_obj:
         run_object_classifier(

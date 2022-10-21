@@ -30,6 +30,9 @@ h5py = "^3.7.0"
 napari = {extras = ["pyside2"], version = "^0.4.16"}
 read-roi = "^1.6.0"
 Shapely = "^1.8.4"
+dask-image = "^2022.9.0"
+stitch2d = "^1.1"
+imageio-ffmpeg = "^0.4.7"
 
 [tool.pyright]
 reportPrivateImportUsage = false

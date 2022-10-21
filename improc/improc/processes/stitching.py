@@ -1,39 +1,30 @@
 from operator import itemgetter
-from typing import DefaultDict
-from .common.utils import get_layout_indexing
+from typing import DefaultDict, Hashable
+from improc.common.result import Result, Value
+from improc.experiment.types import Axis, Channel, Dataset, Experiment, Exposure, Image, MemoryImage, Mosaic, Tag, Timepoint, Vertex
+
+from improc.processes.types import ManyToOneTask, Task, TaskError
+from improc.utils import agg
 from scipy.sparse import linalg
 
 import numpy as np
 
-def stitch(microscope: str, images: list[np.ndarray], t_o=0.1):
+
+def stitch(images: list[np.ndarray], indices: list[tuple[int,int]], t_o=0.1):
     #+TAG:DIRTY
     # Assumption made that stitched images all have square geometry.
     dim = int(np.sqrt(len(images)))
-    layout = get_layout_indexing(microscope, dim)
+    layout = np.zeros((dim,dim), dtype=np.uint8)
+    for idx, index in enumerate(indices):
+        layout[index] = idx
     # Flatten layout sequence and get permuted sequence of paths.
     perm_paths = itemgetter(*(layout.reshape(-1)))(images)
-    # Reshape images into correct 2D locations but with each image being a 1D array.
     imgarray = np.array(perm_paths)
     # Assuming all images are of same size, reshape into larger array with images in place.
     imgarray = imgarray.reshape((dim, dim, *imgarray[0].shape))
 
     # Used in later computations.
     img_size_y, img_size_x = imgarray[0, 0].shape
-
-    '''
-    #Same transform can be used for both x and y overlaps, which is tremendously useful
-    #Equation form is very reminiscent of a system of difference equations, and I'm sure it could be formulated as such
-    #Create transform matrix     0   1   2   3   4   5   6   7   8
-    mat = np.matrix(np.array([  [2, -1,  0, -1,  0,  0,  0,  0,  0],
-                                [0,  2, -1,  0, -1,  0,  0,  0,  0],
-                                [0,  0,  1,  0,  0, -1,  0,  0,  0],
-                                [0,  0,  0,  2, -1,  0, -1,  0,  0],
-                                [0,  0,  0,  0,  2, -1,  0, -1,  0],
-                                [0,  0,  0,  0,  0,  1,  0,  0, -1],
-                                [0,  0,  0,  0,  0,  0,  1, -1,  0],
-                                [0,  0,  0,  0,  0,  0,  0,  1, -1],
-                                [0,  0,  0,  0,  0,  0,  0,  0,  0] ]))
-    '''
 
     #Build transform matrix
     Y, X = imgarray.shape[0], imgarray.shape[1]
@@ -131,14 +122,30 @@ def stitch(microscope: str, images: list[np.ndarray], t_o=0.1):
         running_row_totals[row] += tile_cols
         running_col_totals[col] += tile_rows
 
-
     max_col = max(running_col_totals.values())
     max_row = max(running_row_totals.values())
 
-
     img = stitched_arr[:max_col, :max_row]
-    # On special request, images taken via the 'ixm' need a 90 degree rotation.
-    if microscope in {'ixm'}:
-        img = np.rot90(img)
 
     return img
+
+
+class Stitch(ManyToOneTask):
+
+    def __init__(self) -> None:
+        super().__init__("stitched")
+
+    def stitch(self, images: list[Image]) -> np.ndarray:
+        data = [img.data for img in images]
+        indices = [tag.index for tag in map(lambda x: x.get_tag(Mosaic), images) if tag is not None]
+        assert(len(indices) == len(data))
+        return stitch(data, indices)
+
+    def group_pred(self, image: Image) -> Hashable:
+        return (image.get_tag(Vertex), image.get_tag(Timepoint), image.get_tag(Exposure))
+
+    def transform(self, images: list[Image]) -> Result[Image, TaskError]:
+        stitched = self.stitch(images)
+        example = images[0] # TODO: there has to be a better way
+        tags = list(filter(lambda x: not isinstance(x, Mosaic), example.tags)) # filter out the mosaic tag
+        return Value(MemoryImage(stitched, example.axes, tags))

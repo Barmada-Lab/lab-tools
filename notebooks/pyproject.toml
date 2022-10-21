@@ -9,6 +9,8 @@ python = ">=3.10,<3.11"
 jupyterlab = "^3.4.8"
 ipyfilechooser = "^0.6.0"
 improc = { path = "../improc/", develop = true }
+napari = {extras = ["pyside2"], version = "^0.4.16"}
+imageio-ffmpeg = "^0.4.7"
 
 [build-system]
 requires = ["poetry-core"]
