@@ -101,5 +101,6 @@ class LegacyLoader:
             label = self.name,
             datasets = { "raw_imgs": raw_dataset, **scratch_datasets },
             experiment_dir = self.path,
-            scratch_dir = self.scratch_dir
+            scratch_dir = self.scratch_dir,
+            mfspec = self.mfile
         )

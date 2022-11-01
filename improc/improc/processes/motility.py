@@ -6,6 +6,13 @@ from skimage import measure
 from skimage.morphology import disk, dilation, white_tophat
 
 import numpy as np
+from improc.common.result import Result, Value
+from improc.experiment.types import Channel, Dataset, Experiment, Exposure, Image, Vertex
+
+from improc.processes.types import Task, TaskError
+from improc.utils import agg
+
+import csv
 
 def diff(arr):
     a = filters.gaussian(arr[0,0,-1], sigma=1.5)
@@ -51,3 +58,39 @@ def calc_motility(stack):
         "still": threshd,
         "motion_hilighted": hilighted
     }
+
+class MotilityAnalysis(Task):
+
+    def __init__(self, channel: Channel = Channel.Cy5) -> None:
+        super().__init__("motility")
+        self.channel = channel
+
+    def group_pred(self, image: Image):
+        vertex = image.get_tag(Vertex)
+        exposure = image.get_tag(Exposure)
+        if vertex is None or exposure is None:
+            raise Exception("couldn't find vertex or exposure tags")
+        return vertex, exposure
+
+    def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
+        groups = agg.groupby(dataset.images, self.group_pred)
+        results = []
+        for key, stacks in groups.items():
+            _, exposure = key
+            assert(len(stacks)) == 1
+            if exposure.channel != self.channel:
+                continue
+            stack = stacks[0]
+            result = calc_motility(stack)
+            results.append(result)
+
+        results_path = experiment.experiment_dir / "results"
+        if not results_path.exists():
+            results_path.mkdir()
+
+        with open(results_path / "mito_moti.csv", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["pct", "counts_per_frame", "still", "motion_hilighted"])
+            writer.writeheader()
+            writer.writerows(results)
+
+        return Value(dataset)

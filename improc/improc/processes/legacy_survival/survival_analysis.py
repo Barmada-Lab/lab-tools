@@ -8,21 +8,25 @@ import skimage.filters
 import numpy as np
 import tifffile
 
-from multiprocess import Pool
+from multiprocessing import Pool
 from PIL import Image
 from math import isinf
 from glob import glob
 from os.path import join
 from scipy.spatial import KDTree
 from scipy.ndimage import measurements, morphology
+from improc.common.result import Result
 
-from common.utils import legacy as transforms
-from common.utils import makeconfig
+from improc.experiment.types import Dataset, Experiment
+
+from . import legacy as transforms
+from . import makeconfig
 
 from . import utils
 from . import annotate
 from .types import Neuron, ROI
 from .output import Exporter
+from ..types import Task, TaskError
 
 
 class Tracker():
@@ -467,7 +471,7 @@ def run_cox_analysis(config, outdir):
     #Be sure to pipe out errors too
     subprocess.call(['rscript', scriptpath], stdout=cox_analysis_results_file)
 
-class SurvivalAnalyzer:
+class SurvivalAnalyzer(Task):
     def __init__(self, workdir, cell_min_dia_um=10, cell_max_dia_um=150, max_travel_um=50, death_circularity_threshold=0.9, annotate=True, cell_type="rat", fiddle=1.0):
         """
         Automated cell counting for experiments that have been stitched + stacked
@@ -532,4 +536,6 @@ class SurvivalAnalyzer:
                 stacks_left = False
 
         #run_cox_analysis(self.config, self.outdir)
-        print('Done')
+
+    def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
+        return super().process(dataset, experiment)
