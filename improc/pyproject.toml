@@ -14,7 +14,6 @@ Pillow = "^9.0.1"
 matplotlib = "^3.5.1"
 scipy = "^1.8.0"
 tifffile = "^2022.4.8"
-opencv-python = "^4.6.0"
 scikit-image = "^0.19.3"
 scikit-learn = "^1.1.1"
 multiprocess = "^0.70.13"
@@ -22,7 +21,6 @@ imagecodecs = "^2022.2.22"
 pystackreg = "^0.2.6"
 charset-normalizer = "^2.1.1"
 PyYAML = "^6.0"
-zarr = "^2.13.0"
 pandas = "^1.5.0"
 tqdm = "^4.64.1"
 dask = {extras = ["complete"], version = "^2022.9.1"}
@@ -33,6 +31,10 @@ Shapely = "^1.8.4"
 dask-image = "^2022.9.0"
 stitch2d = "^1.1"
 imageio-ffmpeg = "^0.4.7"
+pybasic-illumination-correction = "^0.1.1"
+m2stitch = { git = "https://github.com/yfukai/m2stitch" }
+joblib = "^1.2.0"
+opencv-python-headless = "^4.6.0.66"
 
 [tool.pyright]
 reportPrivateImportUsage = false

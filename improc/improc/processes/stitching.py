@@ -137,6 +137,8 @@ class Stitch(ManyToOneTask):
 
     def stitch(self, images: list[Image]) -> np.ndarray:
         data = [img.data for img in images]
+        avg = np.array(data).mean()
+        data = [img * (avg / img.mean()) for img in data]
         indices = [tag.index for tag in map(lambda x: x.get_tag(Mosaic), images) if tag is not None]
         assert(len(indices) == len(data))
         return stitch(data, indices)

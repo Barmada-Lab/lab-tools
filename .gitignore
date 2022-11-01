@@ -4,4 +4,4 @@ dist/
 poetry.lock
 .ipynb_checkpoints/
 .mypy_cache/
-notebooks/notebooks/config/dev.py
+**/local.py

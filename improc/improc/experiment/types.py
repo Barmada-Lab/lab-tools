@@ -15,7 +15,6 @@ from enum import Enum
 import tifffile
 import shutil
 
-import zarr
 import abc
 from improc.experiment.legacy.mfile import MFSpec
 
@@ -231,6 +230,7 @@ class DirDataset(Dataset):
 class Experiment:
     label: str
     datasets: dict[str, Dataset]
+    mfspec: MFSpec
 
     experiment_dir: pathlib.Path
     scratch_dir: pathlib.Path

@@ -1,36 +1,52 @@
-from typing import Iterable
+from multiprocessing import Pool
+from typing import Hashable, Iterable
 import numpy as np
 import pathlib
-import itertools
 
-from common import WellSpec
+from improc.common.result import Result, Value
 
-from PIL import Image
+from improc.experiment import Image
+from improc.experiment.types import Dataset, Experiment, Exposure, Mosaic, Vertex
 
-def background_from_paths(paths: list[pathlib.Path]) -> np.ndarray:
-    images = np.array([np.array(Image.open(path)) for path in paths])
-    return np.median(images, axis=0, overwrite_input=True).astype(images.dtype)
+from improc.processes.types import OutputCollection, Task, TaskError
+from improc.utils import agg
+from functools import partial
+from skimage.exposure import rescale_intensity
 
-def trunc_sub(a1: np.ndarray, a2: np.ndarray) -> np.ndarray:
-    """
-    Truncated integer subtraction.
-    Results that would underflow are instead set to zero.
-    Supports input dtypes up to uint64
-    """
-    assert(a1.dtype == a2.dtype)
-    assert(a1.shape == a2.shape)
+from tqdm import tqdm
 
-    if a1.dtype == np.uint8:
-        projected_dtype = np.int16
-    elif a1.dtype == np.uint16:
-        projected_dtype = np.int32
-    elif a1.dtype == np.uint32:
-        projected_dtype = np.int64
-    elif a1.dtype == np.uint64:
-        projected_dtype = np.int128
-    else:
-        raise ValueError(f"unsupported datatype {a1.dtype}")
+def apply_shading_correction(images: np.ndarray) -> np.ndarray:
+    assert(len(images.shape) == 3)
+    from pybasic import shading_correction
+    basic = shading_correction.BaSiC(images)
+    basic.prepare()
+    basic.run()
+    transformed = np.apply_over_axes(basic.normalize, images, axes=0) # type: ignore
+    return transformed
 
-    subtracted = a1.astype(projected_dtype) - a2.astype(projected_dtype)
-    subtracted[subtracted < 0] = 0
-    return subtracted.astype(a1.dtype)
+class BaSiC(Task):
+
+    def __init__(self) -> None:
+        super().__init__("basic_corrected")
+
+    def group_pred(self, image: Image) -> Hashable:
+        vertex = image.get_tag(Vertex)
+        mosaic_pos = image.get_tag(Mosaic)
+        channel = image.get_tag(Exposure)
+        return (vertex, mosaic_pos, channel)
+
+    def correct(self, ims: list[Image]):
+        arr = np.array([im.data for im in ims])
+        return (ims, apply_shading_correction(arr))
+
+    def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
+        output = experiment.new_dataset(self.output_label)
+        groups = list(agg.groupby(dataset.images, self.group_pred).values())
+
+        with Pool() as p:
+            for group, corrected in tqdm(p.imap(self.correct, groups), total=len(groups), desc=self.__class__.__name__):
+                for orig, corrected_slice in zip(group, corrected):
+                    tags = orig.tags
+                    axes = orig.axes
+                    output.write_image(corrected_slice, tags, axes)
+            return Value(output)
