@@ -1,6 +1,20 @@
 #!/bin/bash
 
-cp /nfs/turbo/umms-sbarmada/shared/.bash_profile $HOME
+TURBO=/nfs/turbo/umms-sbarmada
+
+if [ ! -e $HOME/turbo ]; then
+    ln -s $TURBO $HOME/turbo
+fi    
+
+if [ ! -e $HOME/Desktop/turbo ]; then
+    ln -s $TURBO $HOME/Desktop/turbo
+fi    
+
+if [ ! -e $HOME/Desktop/ImageJ2.desktop ]; then
+    cp $TURBO/shared/Fiji.app/ImageJ2.desktop $HOME/Desktop
+fi
+
+cp $TURBO/shared/.bash_profile $HOME
 
 rm $HOME/.pyenv -rf
 git clone https://github.com/pyenv/pyenv $HOME/.pyenv
