@@ -5,3 +5,4 @@ poetry.lock
 .ipynb_checkpoints/
 .mypy_cache/
 **/local.py
+notebooks/notebooks/local
