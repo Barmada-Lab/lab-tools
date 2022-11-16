@@ -7,6 +7,7 @@ from typing import Iterable
 from improc.common.result import Result, Value
 from improc.experiment.types import Dataset, Experiment
 
+from sklearn.preprocessing import normalize
 from improc.processes.types import Task, TaskError
 import numpy as np
 import os
@@ -66,7 +67,7 @@ def run_object_classifier(ilastik_bin, classifier_path: Path, images: list[Path]
     args = [
         '--output_format', 'hdf5',
         '--output_filename_format', output_base / "{nickname}.h5",
-        '--export_source', 'object probabilities',
+        '--export_source', 'object predictions',
         "--raw_data", *images,
         "--prediction_maps", *pix_preds,
     ]
@@ -128,12 +129,28 @@ def run_survival_pipeline(image_path: Path, classifier_path: Path, ilastik_bin, 
         pixel_probabilities = sorted(pixel_probabilities_base.glob("*.h5"))
 
     if run_obj:
-        run_object_classifier(
+        object_probabilities = run_object_classifier(
             ilastik_bin,
             object_classifier,
             raw_imgs,
             pixel_probabilities,
             object_probabilities_base)
+
+        paired = []
+        for pixel_prob in pixel_probabilities:
+            for object_prob in object_probabilities:
+                if pixel_prob.name == object_prob.name:
+                    paired.append((pixel_prob, object_prob))
+
+        for pixel_prob, object_prob in paired:
+            with h5py.File(pixel_prob, "r+") as pix, h5py.File(object_prob) as o:
+                live = o["exported_data"][:,:,:,0] # type: ignore
+                live[live != 1] = 0 #type: ignore
+                pixel_map = pix["exported_data"][...] #type: ignore
+                pixel_map[:,:,:,2] *= live #type: ignore
+                normalized = normalize(pixel_map.reshape(-1, 3)).reshape(pixel_map.shape) #type: ignore
+                del pix["exported_data"]
+                pix.create_dataset("exported_data", data=normalized, chunks=True)
 
     if track:
         run_tracker(
@@ -194,7 +211,7 @@ class SurvivalAnalysis(Task):
 
         # unobserved death (segmentation fails)
         if len(line) < tps and dead_at == -1:
-            censored = True
+            dead_at = len(line) - 1
 
         death_cause = 'death' if dead_at != -1 else 'NA'
         event = 1

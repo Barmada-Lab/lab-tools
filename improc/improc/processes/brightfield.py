@@ -1,12 +1,12 @@
 from collections.abc import Iterable
 from skimage.morphology import disk, white_tophat
-from skimage.exposure import exposure, rescale_intensity
+from skimage.exposure import rescale_intensity
 
 import numpy as np
-from improc.common.result import Error, Result, Value
-from improc.experiment.types import Axis, Channel, Dataset, Experiment, Exposure, Image, MemoryImage
+from improc.common.result import Result, Value
+from improc.experiment.types import Channel, Exposure, Image, MemoryImage
 
-from improc.processes.types import OneToOneTask, Task, TaskError, UnhandledShape
+from improc.processes.types import OneToOneTask, TaskError
 
 def ineuron_preprocess(image: np.ndarray, r_disk: int) -> np.ndarray:
 
