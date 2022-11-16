@@ -29,8 +29,7 @@ eval "$(pyenv init -)"
 pyenv install 3.10.2
 pyenv global 3.10.2
 
-rm -rf ~/.poetry
-rm -rf ~/.cache/pypoetry/virtualenvs/*
+curl -sSL https://install.python-poetry.org | python3 - --uninstall
 curl -sSL https://install.python-poetry.org | python3 -
 PATH=$HOME/.poetry/bin:$PATH
 export PATH
@@ -40,8 +39,8 @@ if [ ! -d $HOME/Repos ]; then
    mkdir $HOME/Repos
 fi
 
-if [ ! -d $HOME/Repos/lab_tools ]; then
-   git clone https://github.com/kerowak/lab_tools $HOME/Repos/lab_tools
+if [ ! -d $HOME/Repos/lab-tools ]; then
+   git clone https://github.com/Barmada-Lab/lab-tools $HOME/Repos/lab-tools
 fi
 
 cd $HOME/Repos/lab_tools/notebooks && poetry install && poetry run ./nbkgen.sh
