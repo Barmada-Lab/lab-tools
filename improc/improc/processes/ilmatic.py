@@ -29,8 +29,7 @@ def run_ilastik(ilastik_bin: Path, project: Path, *args: str):
     cmd = [
         ilastik_bin,
         "--headless",
-        "--readonly",
-        "--project", project,
+        f"--project={project}",
     ] + list(args)
     proc = subprocess.run(cmd)
     proc.check_returncode()
@@ -44,11 +43,12 @@ def run_pixel_classifier(ilastik_bin, classifier_path: Path, images: list[Path],
 
     output = output_base / "{nickname}.h5"
     args = [
-        '--input_axes', axes,
-        '--output_format', 'hdf5',
-        '--output_filename_format', output,
-        '--export_source', 'probabilities',
-    ] + list(map(str, images))
+        '--output_format=hdf5',
+        f'--input_axes={axes}',
+        f'--output_filename_format={output}',
+        "--raw_data",
+        *list(map(str, images))
+    ] 
 
     run_ilastik(
         ilastik_bin,
@@ -64,12 +64,14 @@ def run_object_classifier(ilastik_bin, classifier_path: Path, images: list[Path]
 
     initial = snapshot(output_base.glob("*.h5"))
 
+    output = output_base / "{nickname}.h5"
     args = [
-        '--output_format', 'hdf5',
-        '--output_filename_format', output_base / "{nickname}.h5",
-        '--export_source', 'object predictions',
-        "--raw_data", *images,
-        "--prediction_maps", *pix_preds,
+        '--output_format=hdf5',
+        f'--output_filename_format={output}',
+        "--raw_data", 
+        *list(map(str,images)),
+        "--prediction_maps", 
+        *list(map(str,pix_preds)),
     ]
 
     run_ilastik(
@@ -86,11 +88,14 @@ def run_tracker(ilastik_bin, classifier_path: Path, images: list[Path], pix_pred
 
     initial = snapshot(output_base.glob("*.h5"))
 
+    output = output_base / "{nickname}.h5",
     args = [
-        '--output_format', 'hdf5',
-        "--output_filename_format", output_base / "{nickname}.h5",
-        "--raw_data", *images,
-        "--prediction_maps", *pix_preds,
+        '--output_format=hdf5',
+        f"--output_filename_format={output}", 
+        "--raw_data", 
+        *list(map(str, images)),
+        "--prediction_maps", 
+        *list(map(str,pix_preds)),
     ]
 
     run_ilastik(
