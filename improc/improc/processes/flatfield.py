@@ -1,21 +1,19 @@
-from multiprocessing import Pool
-from typing import Hashable, Iterable
 import numpy as np
-import pathlib
+
+from multiprocessing import Pool
+from numpy.typing import NDArray
+from typing import Hashable
+from skimage.morphology import disk, white_tophat
 
 from improc.common.result import Result, Value
-
 from improc.experiment import Image
-from improc.experiment.types import Dataset, Experiment, Exposure, Mosaic, Vertex
-
-from improc.processes.types import OutputCollection, Task, TaskError
+from improc.experiment.types import Dataset, Experiment, Exposure, MemoryImage, Mosaic, Vertex
+from improc.processes.types import OneToOneTask, Task, TaskError
 from improc.utils import agg
-from functools import partial
-from skimage.exposure import rescale_intensity
 
 from tqdm import tqdm
 
-def apply_shading_correction(images: np.ndarray) -> np.ndarray:
+def apply_shading_correction(images: NDArray[np.float64]) -> NDArray[np.float64]:
     assert(len(images.shape) == 3)
     from pybasic import shading_correction
     basic = shading_correction.BaSiC(images)
@@ -36,7 +34,7 @@ class BaSiC(Task):
         return (vertex, mosaic_pos, channel)
 
     def correct(self, ims: list[Image]):
-        arr = np.array([im.data for im in ims])
+        arr = np.array([im.data for im in ims]).astype(np.float64)
         return (ims, apply_shading_correction(arr))
 
     def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
@@ -50,3 +48,14 @@ class BaSiC(Task):
                     axes = orig.axes
                     output.write_image(corrected_slice, tags, axes)
             return Value(output)
+
+class RollingBall(OneToOneTask):
+
+    def __init__(self, radius: int=13) -> None:
+        super().__init__("rollingball")
+        self.radius = radius
+
+    def transform(self, image: Image) -> Result[Image, TaskError]:
+        se = disk(self.radius)
+        transformed: np.ndarray = white_tophat(image.data, footprint=se) # type: ignore
+        return Value(MemoryImage(transformed, image.axes, image.tags))

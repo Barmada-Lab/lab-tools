@@ -1,10 +1,9 @@
 from os.path import join
 from glob import glob
-
-import pandas as pd
-
 import yaml
 import io
+
+import pandas as pd
 
 def homogenize_comma_quantity(mfile_path):
     # Read-in Mfile.
@@ -38,8 +37,8 @@ def parse_mfile(indir):
     # Ensure stream can be re-read.
     stream.seek(0)
     img_df = pd.read_csv(stream, skiprows=range(3), low_memory=False)
-    exp_df.columns = map(str.lower, exp_df.columns)
-    img_df.columns = map(str.lower, img_df.columns)
+    exp_df.columns = map(str.lower, exp_df.columns) # type: ignore
+    img_df.columns = map(str.lower, img_df.columns) # type: ignore
     img_df.fillna('NA', inplace=True)
     return exp_df, img_df
 

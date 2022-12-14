@@ -1,6 +1,7 @@
 import enum
 from functools import total_ordering
 
+
 @total_ordering
 class NaturalOrderStrEnum(str, enum.Enum):
     """

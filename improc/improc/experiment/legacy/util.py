@@ -1,8 +1,5 @@
-import pathlib
-import re
 import numpy as np
 
-from .mfile import MFSpec
 from improc.experiment import *
 
 def get_layout_indexing(scope_name: str, dimension: int) -> np.ndarray:
@@ -32,17 +29,11 @@ def get_layout_indexing(scope_name: str, dimension: int) -> np.ndarray:
             7 8 9 '''
         return snake_by_rows
 
-    elif scope_name.lower() in {'flo2', 'ds3'}:
+    elif scope_name.lower() in {'flo2', 'ds', 'ds2', 'ds3'}:
         ''' 3 4 9
             2 5 8
             1 6 7 '''
         return snake_by_rows.transpose()[::-1]
-
-    elif scope_name.lower() in {'ds', 'ds2'}:
-        ''' 7 8 9
-            6 5 4
-            1 2 3 '''
-        return snake_by_rows[::-1]
 
     elif scope_name.lower().startswith('lux'):
         ''' 9 8 7

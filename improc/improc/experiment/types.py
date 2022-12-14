@@ -1,26 +1,18 @@
-from collections import defaultdict
-from collections.abc import Iterable
+import os
+import shutil
+import pathlib
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-import enum
-from functools import cached_property
-import os
-import pathlib
-from typing import Callable, Type, TypeVar
-
-import numpy as np
-from skimage import io
-from enum import Enum
-
-import tifffile
-import shutil
+from typing import Type, TypeVar
 
 import abc
-from improc.experiment.legacy.mfile import MFSpec
+import tifffile
+import numpy as np
+from enum import Enum
 
+from improc.experiment.legacy.mfile import MFSpec
 from improc.utils.enumero import NaturalOrderStrEnum
-from improc.utils import rand
-import sys
+
 
 META_KEY = "meta"
 AXES_KEY = "axes"
@@ -57,7 +49,7 @@ class Exposure:
 
 @dataclass(frozen=True, eq=True)
 class Timepoint:
-    index: int
+    index: int # zero indexed
     realtime: datetime
 
 @dataclass(frozen=True, eq=True)

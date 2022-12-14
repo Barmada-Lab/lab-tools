@@ -1,27 +1,38 @@
+from typing import Callable, Hashable
 
-from typing import Hashable
-from improc.common.result import Result, Value
+import numpy as np
+from pystackreg import StackReg
+from skimage.filters import sobel
+
+from improc.common.result import Error, Result, Value
 from improc.experiment.types import Axis, Exposure, Image, MemoryImage, Timepoint, Vertex
 from improc.processes.types import ManyToOneTask, TaskError
 
-from pystackreg import StackReg
-import numpy as np
+class BadImageCantCrop(TaskError):
+    ...
 
 class Stack(ManyToOneTask):
 
-    def __init__(self, crop_output: bool = True) -> None:
+    def __init__(self, registration_transform: Callable[[np.ndarray], np.ndarray] = sobel,  crop_output: bool = True) -> None: # type: ignore
         super().__init__("stacked")
         self.crop_output = crop_output
+        self.registration_transform = registration_transform
 
     def group_pred(self, image: Image) -> Hashable:
         return (image.get_tag(Vertex), image.get_tag(Exposure))
 
     def transform(self, images: list[Image]) -> Result[Image, TaskError]:
-        ordered = [img.data for img in sorted(images, key=lambda x: x.get_tag(Timepoint).index)] # type: ignore
+        ordered = np.array([img.data for img in sorted(images, key=lambda x: x.get_tag(Timepoint).index)]) # type: ignore
         sr = StackReg(StackReg.RIGID_BODY)
-        stacked = sr.register_transform_stack(np.array(ordered), reference="previous")
+        reg_stack = np.array([self.registration_transform(img) for img in ordered])
+        transforms = sr.register_stack(reg_stack, reference="previous")
+        stacked = sr.transform_stack(np.array(ordered), tmats=transforms)
         if self.crop_output:
-            stacked = crop(stacked)
+            try:
+                stacked = crop(stacked)
+            except:
+                print(images[0])
+                return Error(BadImageCantCrop())
         tags = list(filter(lambda x: not isinstance(x, Timepoint), images[0].tags))
         axes = [Axis.T] + images[0].axes
         return Value(MemoryImage(stacked, axes, tags))
@@ -32,11 +43,18 @@ def crop(stack: np.ndarray) -> np.ndarray:
     max_right_offset = 0
     max_top_offset = 0
     max_bot_offset = 0
+
+    def first_false(x):
+        query = np.where(x == False)
+        if query[0].any():
+            return query[0][0]
+        else:
+            return 0
+
     for frame in stack:
         # find rows/columns that are entirely zero
         col_borders = (frame == 0).all(axis=0)
         row_borders = (frame == 0).all(axis=1)
-        first_false = lambda x: np.where(x == False)[0][0]
 
         if (left_offset := first_false(col_borders)) > max_left_offset:
             max_left_offset = left_offset

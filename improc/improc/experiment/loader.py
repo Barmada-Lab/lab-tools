@@ -1,9 +1,7 @@
-import abc
-from dataclasses import dataclass
 import pathlib
+from dataclasses import dataclass
 
 from improc.common.result import Result, Error, Value
-
 from .types import Experiment
 from .legacy.loader import LegacyLoader
 

@@ -1,9 +1,9 @@
+import pathlib
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 
 import charset_normalizer
-import pathlib
 
 @dataclass
 class Exposure:
@@ -16,10 +16,16 @@ class DrugInfo:
     drug_conc: float | None
 
 @dataclass
+class DNAInfo:
+    dna_label: str
+    dna_conc: float | None
+
+@dataclass
 class WellSpec:
     label: str
     exposures: list[Exposure]
     drugs: list[DrugInfo]
+    dnas: list[DNAInfo]
 
 @dataclass
 class MFSpec:
@@ -31,6 +37,7 @@ class MFSpec:
     montage_dim: int
     montage_overlap: float
     imaging_times: list[datetime]
+    morphology_channel: str
     wells: list[WellSpec]
 
 def read_mfile(path: pathlib.Path) -> MFSpec | None:
@@ -76,6 +83,7 @@ def read_mfile(path: pathlib.Path) -> MFSpec | None:
     binning = gen_spec["binning"]
     montage_dim = int(gen_spec["Montage XY"])
     montage_overlap = 1.0 / int(gen_spec["Tile overlap"])
+    primary_channel = gen_spec["Primary channel"]
 
     def parse_crap(date_str: str, time_str: str) -> datetime:
         m, d, y = map(int, date_str.split("/"))
@@ -130,7 +138,20 @@ def read_mfile(path: pathlib.Path) -> MFSpec | None:
                 drug_conc = float(drug_conc)
             drugs.append(DrugInfo(drug, drug_conc))
 
-        return WellSpec(label, wells, drugs)
+        dnas = []
+        for idx in range(2):
+            dna = well_spec[f"DNA{idx+1}"]
+            if dna.lower() in ["na","n/a",0]:
+                continue
+            dna_conc = well_spec[f"[DNA{idx+1}]-ng/well"]
+            if dna_conc.lower() in ["na", "n/a", "0"]:
+                dna_conc = None
+            else:
+                dna_conc = float(dna_conc)
+            dnas.append(DNAInfo(dna, dna_conc))
+
+
+        return WellSpec(label, wells, drugs, dnas)
 
     return MFSpec(
         name=name,
@@ -140,6 +161,7 @@ def read_mfile(path: pathlib.Path) -> MFSpec | None:
         binning = binning,
         montage_dim = montage_dim,
         montage_overlap = montage_overlap,
+        morphology_channel=primary_channel,
         imaging_times = extract_imaging_times(t_transfect, well_specs),
         wells = [build_wellspec(well_spec) for well_spec in well_specs]
     )

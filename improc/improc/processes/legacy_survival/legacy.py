@@ -1,6 +1,8 @@
 from datetime import datetime
 import math
+
 import numpy as np
+
 
 def parse_datetime(date_str: str, time_str: str) -> datetime:
     MM, DD, YYYY = map(int, date_str.split("/"))
@@ -20,16 +22,16 @@ def microns_to_pixels(microns, magnification, microscope, binning, fiddle=1.0):
         pixels_per_micron_at_20x = 1.237 / float(binning[0])
 
     elif microscope in {'ds', 'deathstar'}:
-        pixels_per_micron_at_20x = 1.536 / float(binning[0])
+        pixels_per_micron_at_20x = 3.077 / float(binning[0])
 
     elif microscope in {'flo2'}:
-        pixels_per_micron_at_20x = 1.536 / float(binning[0])
+        pixels_per_micron_at_20x = 3.077 / float(binning[0])
 
     elif microscope in {'ds2', 'deathstar2'}:
         pixels_per_micron_at_20x = 1.237 / float(binning[0])
 
     elif microscope in {'ds3', 'deathstar3'}:
-        pixels_per_micron_at_20x = 1.536 / float(binning[0])
+        pixels_per_micron_at_20x = 3.077 / float(binning[0])
 
     # THIS VALUE IS A DUMMY ONE BECAUSE IXM DATA IS NOT CURRENTLY USING SURVIVAL ANALYSIS, ONLY STITCHING/STACKING.
     elif microscope in {'ixm'}:

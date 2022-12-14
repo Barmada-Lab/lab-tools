@@ -1,28 +1,27 @@
-from pathlib import Path
-
-from dataclasses import dataclass
-import pathlib
-import subprocess
-from typing import Iterable
-from improc.common.result import Result, Value
-from improc.experiment.types import Dataset, Experiment
-
-from sklearn.preprocessing import normalize
-from improc.processes.types import Task, TaskError
-import numpy as np
 import os
 import csv
+import subprocess
+from typing import Iterable
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
 import h5py
+from sklearn.preprocessing import normalize
+
+from improc.common.result import Result, Value
+from improc.experiment.types import Dataset, Experiment
+from improc.processes.types import Task, TaskError
 
 @dataclass(eq=True, frozen=True)
 class FileSnapshot:
-    path: pathlib.Path
+    path: Path
     modified_time: int
 
-def snapshot(paths: Iterable[pathlib.Path]) -> set[FileSnapshot]:
+def snapshot(paths: Iterable[Path]) -> set[FileSnapshot]:
     return set([FileSnapshot(path, path.stat().st_mtime_ns) for path in paths])
 
-def get_new(before: set[FileSnapshot], after: set[FileSnapshot]) -> list[pathlib.Path]:
+def get_new(before: set[FileSnapshot], after: set[FileSnapshot]) -> list[Path]:
     return sorted(snap.path for snap in after - before)
 
 def run_ilastik(ilastik_bin: Path, project: Path, *args: str):
@@ -68,7 +67,8 @@ def run_object_classifier(ilastik_bin, classifier_path: Path, images: list[Path]
     args = [
         '--output_format=hdf5',
         f'--output_filename_format={output}',
-        "--raw_data", 
+        '--output_source="Object Probabilities"',
+        "--raw_data",
         *list(map(str,images)),
         "--prediction_maps", 
         *list(map(str,pix_preds)),

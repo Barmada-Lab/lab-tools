@@ -1,6 +1,8 @@
-import abc
 from dataclasses import dataclass
 from typing import Generic, TypeVar
+
+import abc
+
 
 V = TypeVar("V")
 E = TypeVar("E")
