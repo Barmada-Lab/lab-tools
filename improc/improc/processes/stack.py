@@ -13,18 +13,27 @@ class BadImageCantCrop(TaskError):
 
 class Stack(ManyToOneTask):
 
-    def __init__(self, registration_transform: Callable[[np.ndarray], np.ndarray] = sobel,  crop_output: bool = True) -> None: # type: ignore
+    def __init__(self, registration_transform: Callable[[np.ndarray], np.ndarray] = sobel,  crop_output: bool = True, force_bad_reg: bool = False) -> None: # type: ignore
         super().__init__("stacked")
         self.crop_output = crop_output
         self.registration_transform = registration_transform
+        self.force_bad_reg = force_bad_reg
 
     def group_pred(self, image: Image) -> Hashable:
         return (image.get_tag(Vertex), image.get_tag(Exposure))
 
     def transform(self, images: list[Image]) -> Result[Image, TaskError]:
         ordered = np.array([img.data for img in sorted(images, key=lambda x: x.get_tag(Timepoint).index)]) # type: ignore
+        tags = list(filter(lambda x: not isinstance(x, Timepoint), images[0].tags))
+        axes = [Axis.T] + images[0].axes
         sr = StackReg(StackReg.RIGID_BODY)
         reg_stack = np.array([self.registration_transform(img) for img in ordered])
+
+        time_axis = sr._detect_time_axis(reg_stack)
+        if time_axis != 0 and not self.force_bad_reg: # If the registration is gonna be garbage, don't bother
+            print(f"Bad registration for {images[0].vertex}; defaulting to stack w/o registration")
+            return Value(MemoryImage(ordered, axes, tags))
+
         transforms = sr.register_stack(reg_stack, reference="previous")
         stacked = sr.transform_stack(np.array(ordered), tmats=transforms)
         if self.crop_output:
@@ -33,8 +42,6 @@ class Stack(ManyToOneTask):
             except:
                 print(images[0])
                 return Error(BadImageCantCrop())
-        tags = list(filter(lambda x: not isinstance(x, Timepoint), images[0].tags))
-        axes = [Axis.T] + images[0].axes
         return Value(MemoryImage(stacked, axes, tags))
 
 def crop(stack: np.ndarray) -> np.ndarray:
