@@ -38,7 +38,7 @@ class BaSiC(Task):
         return (ims, apply_shading_correction(arr))
 
     def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
-        output = experiment.new_dataset(self.output_label)
+        output = experiment.new_dataset(self.output_label, overwrite=True)
         groups = list(agg.groupby(dataset.images, self.group_pred).values())
 
         with Pool() as p:
