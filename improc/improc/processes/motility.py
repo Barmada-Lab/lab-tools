@@ -1,18 +1,17 @@
-from pystackreg import StackReg
+import csv
+
+import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 from skimage.exposure import rescale_intensity
 from skimage import filters
 from skimage import measure
 from skimage.morphology import disk, dilation, white_tophat
 
-import numpy as np
 from improc.common.result import Result, Value
 from improc.experiment.types import Channel, Dataset, Experiment, Exposure, Image, Vertex
-
 from improc.processes.types import Task, TaskError
 from improc.utils import agg
 
-import csv
 
 def diff(arr):
     a = filters.gaussian(arr[0,0,-1], sigma=1.5)
@@ -24,16 +23,16 @@ def diff(arr):
     diff[diff < thresh] = 0
     return diff
 
-def hilight_motion(stack, window=10):
+def hilight_motion(stack, window):
     """ Make sure you register before calling this function """
     sliding = sliding_window_view(stack, window_shape=(window, stack.shape[1], stack.shape[2]))
     subd = np.array(list(map(diff, sliding)))
     return subd
 
-def calc_motility(stack):
+def calc_motility(stack, window):
     # filter noise
     l, h = np.percentile(stack, (0.5, 99.5))
-    rescaled = rescale_intensity(stack, in_range=(l,h))
+    rescaled = rescale_intensity(stack, in_range=(l,h)) # type: ignore
 
     # handle still frame
     footprint = disk(3)
@@ -43,7 +42,7 @@ def calc_motility(stack):
     threshd = np.zeros_like(tophatted)
     threshd[tophatted > still_thresh] = 1
 
-    hilighted = hilight_motion(rescaled)
+    hilighted = hilight_motion(rescaled, window)
 
     labels = measure.label(hilighted.astype(np.bool8))
     props = measure.regionprops(labels)
@@ -61,8 +60,9 @@ def calc_motility(stack):
 
 class MotilityAnalysis(Task):
 
-    def __init__(self, channel: Channel = Channel.Cy5) -> None:
+    def __init__(self, window: int = 10, channel: Channel = Channel.Cy5) -> None:
         super().__init__("motility")
+        self.window = window
         self.channel = channel
 
     def group_pred(self, image: Image):
@@ -81,7 +81,7 @@ class MotilityAnalysis(Task):
             if exposure.channel != self.channel:
                 continue
             stack = stacks[0]
-            result = calc_motility(stack)
+            result = calc_motility(stack, self.window)
             results.append(result)
 
         results_path = experiment.experiment_dir / "results"

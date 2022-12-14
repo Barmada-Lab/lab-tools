@@ -1,14 +1,12 @@
-from os.path import isdir
+import re
 import pathlib
+from pathlib import Path
+from datetime import timedelta
+from typing import Callable
 
+from improc.experiment import *
 from .mfile import read_mfile
 from .util import get_layout_indexing
-
-from datetime import timedelta
-from improc.experiment import *
-
-from pathlib import Path
-import re
 
 @dataclass
 class LegacyDirDataset(Dataset):

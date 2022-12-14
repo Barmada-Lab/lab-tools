@@ -1,17 +1,12 @@
+import csv
 from pathlib import Path
-from read_roi import read_roi_zip
-from scipy.ndimage import binary_fill_holes
-from skimage.measure import label, regionprops
 from collections import defaultdict
-from shapely.geometry import Polygon
 
 import numpy as np
 import tifffile
-import csv
 import cv2
-
-import napari
-
+from read_roi import read_roi_zip
+from shapely.geometry import Polygon
 
 def calc_frac(time, well_id, imgs, cell_rois, nuc_rois):
     cell_nuc_pairs = defaultdict(list)
@@ -54,11 +49,8 @@ def calc_frac(time, well_id, imgs, cell_rois, nuc_rois):
                 "id": cell_roi_idx,
                 "nuc_signal": nuc_signal,
                 "nuc_area": nuc_area,
-                "nuc_mean": nuc_signal / nuc_area,
                 "cyto_signal": cyto_signal,
                 "cyto_area": cyto_area,
-                "cyto_mean": cyto_signal / cyto_area,
-                "nuc_cyto_mean_ratio": (nuc_signal / nuc_area) / (cyto_signal / cyto_area)
             }
 
 def nuc_frac(experiment_path: Path):

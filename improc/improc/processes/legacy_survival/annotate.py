@@ -2,7 +2,8 @@ import cv2
 
 import numpy as np
 
-import common.utils.legacy as transforms
+from . import legacy as transforms
+
 
 def compute_centroid(contour):
     m = cv2.moments(contour)
@@ -17,7 +18,7 @@ def _transform_stack(stack: np.ndarray) -> np.ndarray:
         stack = stack.reshape(1, *stack.shape)
     return transforms.to_rgb_stack(stack)
 
-def annotate_fractionation(stack, cell_rois, unknown_rois, nuclear_rois,
+def annotate_fractionation(well, stack, cell_rois, unknown_rois, nuclear_rois,
                            nuclear_centroids=None, status_tags={}):
     # Text drawing parameters.
     FONT_SCALE = 1.6
@@ -50,7 +51,7 @@ def annotate_fractionation(stack, cell_rois, unknown_rois, nuclear_rois,
 
     return stack
 
-def annotate_survival(stack: np.ndarray, rois, width=2, thickness=2, font_scale=1.6, DELTA=25) -> np.ndarray:
+def annotate_survival(stack, rois, width=2, thickness=2, font_scale=1.6, DELTA=25) -> np.ndarray:
     # Text drawing parameters.
     FONT_SCALE = font_scale
     ## Used to offset numeric identifier from cell a bit. Should be resolution-dependent.

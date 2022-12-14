@@ -1,13 +1,13 @@
-from operator import itemgetter
 from typing import DefaultDict, Hashable
-from improc.common.result import Result, Value
-from improc.experiment.types import Axis, Channel, Dataset, Experiment, Exposure, Image, MemoryImage, Mosaic, Tag, Timepoint, Vertex
-
-from improc.processes.types import ManyToOneTask, Task, TaskError
-from improc.utils import agg
-from scipy.sparse import linalg
+from operator import itemgetter
 
 import numpy as np
+from scipy.sparse import linalg
+from skimage.exposure import rescale_intensity
+
+from improc.common.result import Result, Value
+from improc.experiment.types import Exposure, Image, MemoryImage, Mosaic, Timepoint, Vertex
+from improc.processes.types import ManyToOneTask, TaskError
 
 
 def stitch(images: list[np.ndarray], indices: list[tuple[int,int]], t_o=0.1):
@@ -136,9 +136,7 @@ class Stitch(ManyToOneTask):
         super().__init__("stitched")
 
     def stitch(self, images: list[Image]) -> np.ndarray:
-        data = [img.data for img in images]
-        avg = np.array(data).mean()
-        data = [img * (avg / img.mean()) for img in data]
+        data = [rescale_intensity(img.data, out_range=np.uint16) for img in images] # type: ignore
         indices = [tag.index for tag in map(lambda x: x.get_tag(Mosaic), images) if tag is not None]
         assert(len(indices) == len(data))
         return stitch(data, indices)

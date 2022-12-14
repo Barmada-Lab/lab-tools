@@ -35,6 +35,8 @@ pybasic-illumination-correction = "^0.1.1"
 m2stitch = { git = "https://github.com/yfukai/m2stitch" }
 joblib = "^1.2.0"
 opencv-python-headless = "^4.6.0.66"
+scikit-video = "^1.1.11"
+tensorflow = "^2.11.0"
 
 [tool.pyright]
 reportPrivateImportUsage = false

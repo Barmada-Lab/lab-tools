@@ -1,5 +1,4 @@
 from json import JSONEncoder
-
 from datetime import datetime, timedelta
 import dataclasses
 import enum

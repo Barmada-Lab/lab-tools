@@ -1,5 +1,5 @@
-import numpy as np
 import cv2
+import numpy as np
 
 class ROI(object):
     def __init__(self, img, centroid, contour):
