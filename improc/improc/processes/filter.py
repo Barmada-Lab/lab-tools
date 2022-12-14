@@ -12,7 +12,7 @@ class Filter(Task):
         self.predicate = predicate
 
     def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
-        new_dataset = experiment.new_dataset(self.output_label)
+        new_dataset = experiment.new_dataset(self.output_label, overwrite=True)
         for image in dataset.images:
             if self.predicate(image):
                 new_dataset.write_image(image.data, image.tags, image.axes)
