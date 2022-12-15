@@ -2,7 +2,7 @@
 name = "improc"
 version = "0.1.0"
 description = ""
-authors = ["kerowak <boiwaq@gmail.com>"]
+authors = ["Jacob Waksmacki <jwaksmack@gmail.com>"]
 
 [tool.poetry.scripts]
 flatfield = "improc.flatfield_cli:main"
