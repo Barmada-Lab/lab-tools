@@ -38,6 +38,7 @@ opencv-python-headless = "^4.6.0.66"
 scikit-video = "^1.1.11"
 tensorflow = "^2.11.0"
 
+
 [tool.pyright]
 reportPrivateImportUsage = false
 
