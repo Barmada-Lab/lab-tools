@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 SCRIPT_FILE=`basename "$0"`
 SCRIPT_PATH=$SCRIPT_DIR/$SCRIPT_FILE
@@ -7,6 +9,8 @@ SCRIPT_PATH=$SCRIPT_DIR/$SCRIPT_FILE
 REPO_BASE=$SCRIPT_DIR/..
 
 setup() {
+    cd $REPO_BASE/improc
+    poetry update
     cd $REPO_BASE/notebooks
     poetry update
     module load R
@@ -28,7 +32,7 @@ cd $SCRIPT_DIR
 
 ORIGINAL_MD5=$(md5sum $SCRIPT_PATH | cut -d' ' -f1)
 git reset --hard origin/main
-git pull
+git pull --set-upstream origin main
 NEW_MD5=$(md5sum $SCRIPT_PATH | cut -d' ' -f1)
 
 if [[ $ORIGINAL_MD5 == $NEW_MD5 ]]; then

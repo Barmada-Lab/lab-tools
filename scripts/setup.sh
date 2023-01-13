@@ -1,4 +1,6 @@
 #!/bin/bash
+#
+set -e
 
 TURBO=/nfs/turbo/umms-sbarmada
 
@@ -43,4 +45,4 @@ if [ ! -d $HOME/Repos/lab-tools ]; then
    git clone https://github.com/Barmada-Lab/lab-tools $HOME/Repos/lab-tools
 fi
 
-cd $HOME/Repos/lab_tools/notebooks && poetry install && poetry run ./nbkgen.sh
+$HOME/Repos/lab_tools/scripts/update.sh
