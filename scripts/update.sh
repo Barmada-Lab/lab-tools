@@ -10,9 +10,9 @@ REPO_BASE=$SCRIPT_DIR/..
 
 setup() {
     cd $REPO_BASE/improc
-    poetry update
+    poetry install
     cd $REPO_BASE/notebooks
-    poetry update
+    poetry install
     module load R
     poetry run R -e "install.packages('IRkernel', repos='http://cran.us.r-project.org'); IRkernel::installspec()"
     poetry run ipython kernel install --name barma --user
