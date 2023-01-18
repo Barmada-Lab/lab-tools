@@ -15,15 +15,16 @@ tar_scp_rm() {
     # clean ephemeral data
     rm -rf $dir/{analysis,processed_imgs}
 
+    base=$dir/..
     dirname=$(basename $dir)
     tar=$SCRATCH/${dirname}.tar.gz
     cached=$LOCAL/$dirname
 
     # Archive the experiment
-    tar -czf $tar $dir && scp $tar $DEST && rm -rf $tar $dir $cached
+    tar -czf $tar -C $base $dirname && scp $tar $DEST && rm -rf $tar $dir $cached
 
 }
 
 export -f tar_scp_rm
 
-find $1 -mindepth 1 -maxdepth 1 -type d -mtime +60 -exec bash -c 'tar_scp_rm "$0"' {} \;
+find $ORIGIN -mindepth 1 -maxdepth 1 -type d -mtime +60 | head -30 | xargs -n 1 -I {} bash -c 'tar_scp_rm "$0"' {}
