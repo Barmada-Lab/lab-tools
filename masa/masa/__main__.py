@@ -10,20 +10,24 @@ from glob import glob
 
 from . import core
 
-def check_targets(data_loc, masa_name, exp_name):
+def check_targets(data_loc, masa_name, exp_name, skip):
     masa_path = os.path.join(data_loc, masa_name)
     data_path = os.path.join(masa_path, "data", "stacks")
     roi_glob = glob(os.path.join(masa_path, "server", "*-rois"))
 
     if os.path.exists(masa_path):
-        print(f"{masa_path} already exists; running this command will overwrite all data associated with that experiment.")
-        print("Please ensure rois have been saved elsewhere; the following paths will be deleted:")
-        print("------------------")
-        print(data_path)
-        for match_ in roi_glob:
-            print(match_)
+        if skip:
+            choice = "y"
+        else:
+            print(f"{masa_path} already exists; running this command will overwrite all data associated with that experiment.")
+            print("Please ensure rois have been saved elsewhere; the following paths will be deleted:")
+            print("------------------")
+            print(data_path)
+            for match_ in roi_glob:
+                print(match_)
 
-        choice = input("Confirm? [y/N] ").lower()
+            choice = input("Confirm? [y/N] ").lower()
+
         if choice in ["y", "ye", "yes"]:
             if os.path.isdir(data_path):
                 shutil.rmtree(data_path)
@@ -71,7 +75,7 @@ def deploy_handler(args):
             "data_loc": os.path.join(os.path.sep, "data", "masa"),
             "server_loc" : os.path.join(os.path.sep, "home", "www-data")
         }
-        check_targets(arg_dict["data_loc"], arg_dict["masa_name"], arg_dict["exp_name"])
+        check_targets(arg_dict["data_loc"], arg_dict["masa_name"], arg_dict["exp_name"], args.yes)
         core.deploy(arg_dict)
     except Exception as e:
         print(e)
@@ -85,6 +89,7 @@ def main():
     deploy_parser = subparsers.add_parser("deploy")
     deploy_parser.add_argument("path", type=os.path.abspath)
     deploy_parser.add_argument("masa_idx", type=int)
+    deploy_parser.add_argument("-y", "--yes", action='store_true')
 
     args = root.parse_args()
     if args.cmd == "up":
