@@ -1,4 +1,5 @@
 from glob import glob
+import shutil
 from string import ascii_uppercase
 
 import subprocess
@@ -6,6 +7,7 @@ import random
 import json
 import sys
 import os
+from pathlib import Path
 
 from . import util
 
@@ -97,6 +99,7 @@ def deploy(args):
 
 
     data_path = os.path.join(masa_path, "server")
+
     with open(os.path.join(data_path, "serverSetup.json"), 'w') as f:
         json.dump(serverInput, f)
 
@@ -109,6 +112,13 @@ def deploy(args):
 
     with open(os.path.join(other_server_path, "src", "clientSetup.json"), 'w') as f:
         json.dump(clientInput, f)
+
+    mfile = glob(f"{input_path}/M*.csv")[0]
+    for existing in glob(f"{data_path}/M*.csv"):
+        os.remove(existing)
+    basename = os.path.basename(mfile)
+    destination = os.path.join(data_path, basename)
+    shutil.copy(mfile, destination)
 
     print("Running npm build...")
     subprocess.run(["npm", "run-script", "build"],
