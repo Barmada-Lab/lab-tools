@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "cvat-deploy"
+version = "0.1.0"
+description = ""
+authors = ["kerowak <boiwaq@gmail.com>"]
+packages = [{include = "cvat_deploy"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+opencv-python = "^4.7.0.68"
+scikit-image = "^0.19.3"
+tifffile = "^2022.10.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
