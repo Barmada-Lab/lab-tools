@@ -132,11 +132,16 @@ def stitch(images: list[np.ndarray], indices: list[tuple[int,int]], t_o=0.1):
 
 class Stitch(ManyToOneTask):
 
-    def __init__(self) -> None:
+    def __init__(self, normalize=False) -> None:
         super().__init__("stitched")
+        self.normalize = normalize
 
     def stitch(self, images: list[Image]) -> np.ndarray:
-        data = [rescale_intensity(img.data, out_range=np.uint16) for img in images] # type: ignore
+        data = [img.data for img in images]
+        if self.normalize:
+            avg = np.array(data).mean()
+            data = [img * (avg / img.mean()) for img in data]
+        data = [rescale_intensity(arr, out_range=np.uint16) for arr in data] # type: ignore
         indices = [tag.index for tag in map(lambda x: x.get_tag(Mosaic), images) if tag is not None]
         assert(len(indices) == len(data))
         return stitch(data, indices)
