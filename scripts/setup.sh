@@ -33,17 +33,18 @@ fi
 git clone https://github.com/pyenv/pyenv $HOME/.pyenv
 
 idem_patch_bashprofile() {
-    profile=$HOME/.bash_profile
-    if ! grep -Fxq "$1" $profile; then
-        echo "$1" >> $profile
+    # idempotently modifies the user's bashprofile with the passed string.
+    PROFILE=$HOME/.bash_profile
+    if ! grep -Fxq "$1" $PROFILE; then
+        echo "$1" >> $PROFILE
     fi
-    eval $1
 }
 
 idem_patch_bashprofile 'export PATH=$PATH:$HOME/.local/bin:$HOME/bin'
 idem_patch_bashprofile 'export PATH=$HOME/.pyenv/shims:$PATH'
 idem_patch_bashprofile 'export PATH=$HOME/.pyenv/bin:$PATH'
 idem_patch_bashprofile 'eval "$(pyenv init -)"'
+source ~/.bash_profile
 
 pyenv install 3.10.6
 pyenv global 3.10.6
@@ -55,16 +56,4 @@ fi
 curl -sSL https://install.python-poetry.org | python3 -
 idem_patch_bashprofile 'export PATH=$HOME/.poetry/bin:$PATH'
 idem_patch_bashprofile 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring'
-
-#if [ ! -d $HOME/Repos ]; then
-#   mkdir $HOME/Repos
-#fi
-#
-#LABTOOLS=$HOME/Repos/lab-tools
-#cp $TURBO/shared/.bash_profile $HOME
-#
-#if [ ! -d $LABTOOLS ]; then
-#   git clone https://github.com/Barmada-Lab/lab-tools $LABTOOLS
-#fi
-#
-#$LABTOOLS/scripts/update.sh
+source ~/.bash_profile
