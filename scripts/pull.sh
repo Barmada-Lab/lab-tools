@@ -2,6 +2,15 @@
 
 set -e
 
+help() {
+    echo "Usage: $(basename $0) <experiment_name>"
+}
+
+if [ -z $1 ]; then
+    help
+    exit 1
+fi
+
 HOST=globus-xfer.arc-ts.umich.edu
 ARCHIVE=/nfs/dataden/umms-sbarmada/experiments
 DESTINATION=/scratch
