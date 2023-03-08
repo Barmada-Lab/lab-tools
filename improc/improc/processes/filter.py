@@ -7,12 +7,13 @@ from improc.processes.types import Task, TaskError
 
 class Filter(Task):
 
-    def __init__(self, predicate: Callable[[Image], bool]) -> None:
+    def __init__(self, predicate: Callable[[Image], bool], overwrite=False) -> None:
         super().__init__("filtered")
         self.predicate = predicate
+        self.overwrite = overwrite
 
     def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
-        new_dataset = experiment.new_dataset(self.output_label, overwrite=True)
+        new_dataset = experiment.new_dataset(self.output_label, overwrite=self.overwrite)
         for image in dataset.images:
             if self.predicate(image):
                 new_dataset.write_image(image.data, image.tags, image.axes)
