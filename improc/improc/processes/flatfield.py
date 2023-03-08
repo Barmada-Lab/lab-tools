@@ -24,8 +24,9 @@ def apply_shading_correction(images: NDArray[np.float64]) -> NDArray[np.float64]
 
 class BaSiC(Task):
 
-    def __init__(self) -> None:
+    def __init__(self, overwrite=False) -> None:
         super().__init__("basic_corrected")
+        self.overwrite = overwrite
 
     def group_pred(self, image: Image) -> Hashable:
         vertex = image.get_tag(Vertex)
@@ -38,7 +39,7 @@ class BaSiC(Task):
         return (ims, apply_shading_correction(arr))
 
     def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
-        output = experiment.new_dataset(self.output_label, overwrite=True)
+        output = experiment.new_dataset(self.output_label, overwrite=self.overwrite)
         groups = list(agg.groupby(dataset.images, self.group_pred).values())
 
         with Pool() as p:

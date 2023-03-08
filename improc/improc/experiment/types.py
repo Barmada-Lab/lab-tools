@@ -228,8 +228,6 @@ class Experiment:
     scratch_dir: pathlib.Path
 
     def new_dataset(self, dataset_label: str, overwrite=False) -> Dataset:
-        if dataset_label in self.datasets and not overwrite:
-            raise Exception(f"{dataset_label} already exists in experiment; set overwrite=True if you wish to replace this dataset")
         path = self.scratch_dir / dataset_label
         if path.exists() and any(path.iterdir()) and overwrite:
             shutil.rmtree(path)

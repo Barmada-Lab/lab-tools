@@ -33,8 +33,9 @@ class Task(abc.ABC):
 
 class OneToOneTask(Task):
 
-    def __init__(self, output_label: str) -> None:
+    def __init__(self, output_label: str, overwrite=False) -> None:
         super().__init__(output_label)
+        self.overwrite=overwrite
 
     def filter(self, images: Iterable[Image]) -> Iterable[Image]:
         return images
@@ -44,7 +45,7 @@ class OneToOneTask(Task):
         ...
 
     def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
-        output_dataset = experiment.new_dataset(self.output_label, overwrite=True)
+        output_dataset = experiment.new_dataset(self.output_label, overwrite=self.overwrite)
         with Pool(4) as p:
             for result in tqdm(p.imap(self.transform, self.filter(dataset.images)), total=len(dataset.images), desc=self.__class__.__name__):
                 match result:
@@ -56,8 +57,9 @@ class OneToOneTask(Task):
 
 class ManyToOneTask(Task):
 
-    def __init__(self, output_label: str) -> None:
+    def __init__(self, output_label: str, overwrite=False) -> None:
         super().__init__(output_label)
+        self.overwrite = overwrite
 
     @abc.abstractmethod
     def group_pred(self, image: Image) -> Hashable:
@@ -68,7 +70,7 @@ class ManyToOneTask(Task):
         ...
 
     def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
-        output_dataset = experiment.new_dataset(self.output_label, overwrite=True)
+        output_dataset = experiment.new_dataset(self.output_label, overwrite=self.overwrite)
         groups = list(agg.groupby(dataset.images, self.group_pred).values())
         with Pool(4) as p:
             for result in tqdm(p.imap(self.transform, groups), total=len(groups), desc=self.__class__.__name__):
