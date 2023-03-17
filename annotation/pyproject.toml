@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "annotation"
+version = "0.1.0"
+description = ""
+authors = ["Jacob Waksmacki <jwaksmac@umich.edu>"]
+
+[tool.poetry.scripts]
+segment = "annotation.console:run"
+train = "annotation.training:train"
+predict = "annotation.inference:predict"
+
+[tool.poetry.dependencies]
+python = "^3.10,<3.11"
+numpy = "^1.24.2"
+scikit-image = "^0.20.0"
+napari = {extras = ["pyqt5"], version = "^0.4.16"}
+pybasic-illumination-correction = "^0.1.1"
+opencv-python-headless = "^4.7.0.72"
+PyQt5 = "^5.15.9"
+torch = "^1.13.1"
+tqdm = "^4.65.0"
+torchvision = "^0.14.1"
+wandb = "^0.13.11"
+matplotlib = "^3.7.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pyright]
+reportPrivateImportUsage = false
