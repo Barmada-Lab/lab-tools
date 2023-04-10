@@ -3,7 +3,7 @@ from operator import itemgetter
 
 import numpy as np
 from scipy.sparse import linalg
-from skimage.exposure import rescale_intensity
+from skimage.exposure import exposure, rescale_intensity
 
 from improc.common.result import Result, Value
 from improc.experiment.types import Exposure, Image, MemoryImage, Mosaic, Timepoint, Vertex
@@ -79,7 +79,7 @@ def stitch(images: list[np.ndarray], indices: list[tuple[int,int]], t_o=0.1):
             row[k-1], row[k] = 1, -1
     a[0,0] = 0
 
-    xslices = np.dot(a, xtrans).astype(np.int32)
+    xslices = np.dot(a, xtrans).astype(np.int64)
 
     #Y DIFFERENCING MATRIX
     a = np.zeros((dim, dim), dtype=np.int8)
@@ -90,7 +90,7 @@ def stitch(images: list[np.ndarray], indices: list[tuple[int,int]], t_o=0.1):
             row[k-X], row[k] = 1, -1
 
     a[0,0] = 0
-    yslices = np.dot(a, ytrans).astype(np.int32)
+    yslices = np.dot(a, ytrans).astype(np.int64)
 
     arr = imgarray
 
@@ -102,7 +102,7 @@ def stitch(images: list[np.ndarray], indices: list[tuple[int,int]], t_o=0.1):
             slices.append(arr[i, j][yslices[i*X + j]:, xslices[i*X + j]:])
 
     ##Make blank array to be filled
-    stitched_arr = np.zeros((Y*img_size_y, X*img_size_x), dtype=np.uint16)
+    stitched_arr = np.zeros((Y*img_size_y, X*img_size_x))
     running_col_totals = DefaultDict(int)
     running_row_totals = DefaultDict(int)
     for i, tile in enumerate(slices):
@@ -132,19 +132,22 @@ def stitch(images: list[np.ndarray], indices: list[tuple[int,int]], t_o=0.1):
 
 class Stitch(ManyToOneTask):
 
-    def __init__(self, normalize=False) -> None:
+    def __init__(self, regularize=True) -> None:
         super().__init__("stitched")
-        self.normalize = normalize
+        self.regularize = regularize
 
     def stitch(self, images: list[Image]) -> np.ndarray:
         data = [img.data for img in images]
-        if self.normalize:
-            avg = np.array(data).mean()
-            data = [img * (avg / img.mean()) for img in data]
-        data = [rescale_intensity(arr, out_range=np.uint16) for arr in data] # type: ignore
+        if self.regularize:
+            global_median = np.median(data)
+            for idx, img in enumerate(data):
+                l, h = np.percentile(img, (5, 95)) # trim outliers
+                local_median = np.median(img[np.logical_and(img > l, img < h)])
+                data[idx] = data[idx] * global_median / local_median
         indices = [tag.index for tag in map(lambda x: x.get_tag(Mosaic), images) if tag is not None]
         assert(len(indices) == len(data))
-        return stitch(data, indices)
+        stitched = stitch(data, indices)
+        return stitched
 
     def group_pred(self, image: Image) -> Hashable:
         return (image.get_tag(Vertex), image.get_tag(Timepoint), image.get_tag(Exposure))
