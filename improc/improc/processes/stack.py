@@ -44,6 +44,20 @@ class Stack(ManyToOneTask):
                 return Error(BadImageCantCrop())
         return Value(MemoryImage(stacked, axes, tags))
 
+def composite_stack(stacks: np.ndarray, register_on: np.ndarray):
+    assert stacks.ndim == 4
+    assert register_on.ndim == 3
+
+    sr = StackReg(StackReg.RIGID_BODY)
+    time_axis = sr._detect_time_axis(register_on)
+    if time_axis != 0:
+        print("bad registration")
+        return
+
+    transforms = sr.register_stack(register_on, reference="previous")
+    stacked = np.array([sr.transform_stack(stack, tmats=transforms) for stack in stacks])
+    return stacked
+
 def crop(stack: np.ndarray) -> np.ndarray:
     # offset from image edges
     max_left_offset = 0
