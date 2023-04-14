@@ -5,10 +5,9 @@ from numpy.typing import NDArray
 from typing import Hashable
 from skimage.morphology import disk, white_tophat
 
-from improc.common.result import Result, Value
 from improc.experiment import Image
 from improc.experiment.types import Dataset, Experiment, Exposure, MemoryImage, Mosaic, Vertex
-from improc.processes.types import OneToOneTask, Task, TaskError
+from improc.processes.types import OneToOneTask, Task
 from improc.utils import agg
 
 from tqdm import tqdm
@@ -38,7 +37,7 @@ class BaSiC(Task):
         arr = np.array([im.data for im in ims]).astype(np.float64)
         return (ims, apply_shading_correction(arr))
 
-    def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
+    def process(self, dataset: Dataset, experiment: Experiment) -> Dataset:
         output = experiment.new_dataset(self.output_label, overwrite=self.overwrite)
         groups = list(agg.groupby(dataset.images, self.group_pred).values())
 
@@ -48,7 +47,7 @@ class BaSiC(Task):
                     tags = orig.tags
                     axes = orig.axes
                     output.write_image(corrected_slice, tags, axes)
-            return Value(output)
+            return output
 
 class RollingBall(OneToOneTask):
 
@@ -56,7 +55,7 @@ class RollingBall(OneToOneTask):
         super().__init__("rollingball")
         self.radius = radius
 
-    def transform(self, image: Image) -> Result[Image, TaskError]:
+    def transform(self, image: Image) -> Image:
         se = disk(self.radius)
         transformed: np.ndarray = white_tophat(image.data, footprint=se) # type: ignore
-        return Value(MemoryImage(transformed, image.axes, image.tags))
+        return MemoryImage(transformed, image.axes, image.tags)

@@ -3,7 +3,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Hashable
 
-from improc.common.result import Error, Result, Value, Ok
 
 from improc.experiment import Experiment, Dataset
 from improc.experiment.types import Image
@@ -27,7 +26,7 @@ class Task(abc.ABC):
         self.output_label = output_label
 
     @abc.abstractmethod
-    def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
+    def process(self, dataset: Dataset, experiment: Experiment) -> Dataset:
         ...
 
 
@@ -41,19 +40,15 @@ class OneToOneTask(Task):
         return images
 
     @abc.abstractmethod
-    def transform(self, image: Image) -> Result[Image, TaskError]:
+    def transform(self, image: Image) -> Image:
         ...
 
-    def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
+    def process(self, dataset: Dataset, experiment: Experiment) -> Dataset:
         output_dataset = experiment.new_dataset(self.output_label, overwrite=self.overwrite)
         with Pool(4) as p:
             for result in tqdm(p.imap(self.transform, self.filter(dataset.images)), total=len(dataset.images), desc=self.__class__.__name__):
-                match result:
-                    case Value(image):
-                        output_dataset.write_image2(image)
-                    case Error(taskerr):
-                        return Error(taskerr)
-        return Value(output_dataset)
+                output_dataset.write_image2(result)
+        return output_dataset
 
 class ManyToOneTask(Task):
 
@@ -66,20 +61,16 @@ class ManyToOneTask(Task):
         ...
 
     @abc.abstractmethod
-    def transform(self, images: list[Image]) -> Result[Image, TaskError]:
+    def transform(self, images: list[Image]) -> Image:
         ...
 
-    def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
+    def process(self, dataset: Dataset, experiment: Experiment) -> Dataset:
         output_dataset = experiment.new_dataset(self.output_label, overwrite=self.overwrite)
         groups = list(agg.groupby(dataset.images, self.group_pred).values())
         with Pool(4) as p:
             for result in tqdm(p.imap(self.transform, groups), total=len(groups), desc=self.__class__.__name__):
-                match result:
-                    case Value(image):
-                        output_dataset.write_image2(image)
-                    case Error(taskerr):
-                        return Error(taskerr)
-        return Value(output_dataset)
+                output_dataset.write_image2(result)
+        return output_dataset
 
 
 @dataclass
@@ -90,15 +81,10 @@ class Pipeline:
     def __init__(self, *args: Task) -> None:
         self.tasks = args
 
-    def run(self, experiment: Experiment, input_label: str) -> Result[Ok, TaskError]:
+    def run(self, experiment: Experiment, input_label: str):
         dataset = experiment.datasets[input_label]
         if dataset is None:
-            return Error(InvalidInputLabel(input_label))
+            raise Exception(f"Invalid label {input_label}")
         for task in self.tasks:
             result = task.process(dataset, experiment)
-            match result:
-                case Value(result_dataset):
-                    dataset = result_dataset
-                case TaskError():
-                    return result
-        return Value(Ok())
+            dataset = result

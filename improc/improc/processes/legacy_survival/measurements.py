@@ -12,7 +12,6 @@ import cv2
 import scipy.stats
 import numpy as np
 import pandas as pd
-from improc.common.result import Result, Value
 
 from improc.experiment.types import Channel, Dataset, Experiment
 from improc.processes.types import Task, TaskError
@@ -433,6 +432,6 @@ class Measurements(Task):
         super().__init__("")
         self.measurements = measurements
 
-    def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
+    def process(self, dataset: Dataset, experiment: Experiment) -> Dataset:
         measure_rois(experiment, dict([measurement.asitem() for measurement in self.measurements]))
-        return Value(dataset)
+        return dataset

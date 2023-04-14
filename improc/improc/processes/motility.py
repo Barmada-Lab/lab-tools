@@ -7,9 +7,8 @@ from skimage import filters
 from skimage import measure
 from skimage.morphology import disk, dilation, white_tophat
 
-from improc.common.result import Result, Value
 from improc.experiment.types import Channel, Dataset, Experiment, Exposure, Image, Vertex
-from improc.processes.types import Task, TaskError
+from improc.processes.types import Task
 from improc.utils import agg
 
 
@@ -44,7 +43,7 @@ def calc_motility(stack, window):
 
     hilighted = hilight_motion(rescaled, window)
 
-    labels = measure.label(hilighted.astype(np.bool8))
+    labels = measure.label(hilighted.astype(bool))
     props = measure.regionprops(labels)
     avg_mito_area = np.median([prop.area for prop in props])
 
@@ -72,7 +71,7 @@ class MotilityAnalysis(Task):
             raise Exception("couldn't find vertex or exposure tags")
         return vertex, exposure
 
-    def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
+    def process(self, dataset: Dataset, experiment: Experiment) -> Dataset:
         groups = agg.groupby(dataset.images, self.group_pred)
         results = []
         for key, stacks in groups.items():
@@ -93,4 +92,4 @@ class MotilityAnalysis(Task):
             writer.writeheader()
             writer.writerows(results)
 
-        return Value(dataset)
+        return dataset

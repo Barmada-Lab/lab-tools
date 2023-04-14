@@ -4,9 +4,8 @@ from collections.abc import Iterable
 from skimage.morphology import disk, white_tophat
 from skimage.exposure import rescale_intensity
 
-from improc.common.result import Result, Value
 from improc.experiment.types import Channel, Exposure, Image, MemoryImage
-from improc.processes.types import OneToOneTask, TaskError
+from improc.processes.types import OneToOneTask
 
 def ineuron_preprocess(image: np.ndarray, r_disk: int) -> np.ndarray:
 
@@ -42,6 +41,6 @@ class Brightfield_iNeuron_Preprocess(OneToOneTask):
             if (exposure := image.get_tag(Exposure)) is not None and exposure.channel == Channel.BRIGHTFIELD:
                 yield image
 
-    def transform(self, image: Image) -> Result[Image, TaskError]:
+    def transform(self, image: Image) -> Image:
         preprocessed = ineuron_preprocess(image.data, self.r_disk)
-        return Value(MemoryImage(preprocessed, image.axes, image.tags))
+        return MemoryImage(preprocessed, image.axes, image.tags)
