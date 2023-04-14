@@ -5,9 +5,8 @@ import numpy as np
 from scipy.sparse import linalg
 from skimage.exposure import exposure, rescale_intensity
 
-from improc.common.result import Result, Value
 from improc.experiment.types import Exposure, Image, MemoryImage, Mosaic, Timepoint, Vertex
-from improc.processes.types import ManyToOneTask, TaskError
+from improc.processes.types import ManyToOneTask
 
 
 def stitch(images: list[np.ndarray], indices: list[tuple[int,int]], t_o=0.1):
@@ -152,8 +151,8 @@ class Stitch(ManyToOneTask):
     def group_pred(self, image: Image) -> Hashable:
         return (image.get_tag(Vertex), image.get_tag(Timepoint), image.get_tag(Exposure))
 
-    def transform(self, images: list[Image]) -> Result[Image, TaskError]:
+    def transform(self, images: list[Image]) -> Image:
         stitched = self.stitch(images)
         example = images[0] # TODO: there has to be a better way
         tags = list(filter(lambda x: not isinstance(x, Mosaic), example.tags)) # filter out the mosaic tag
-        return Value(MemoryImage(stitched, example.axes, tags))
+        return MemoryImage(stitched, example.axes, tags)

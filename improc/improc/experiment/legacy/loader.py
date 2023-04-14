@@ -69,7 +69,8 @@ class LegacyLoader:
         mosaic_tag = Mosaic(index = mosaic_idx_tup, overlap = self.mfile.montage_overlap)
 
         timepoint = int(search.group("timepoint")) - 1
-        realtime = self.mfile.imaging_times[timepoint]
+        if 0  <= timepoint < len(self.mfile.imaging_times):
+            realtime = self.mfile.imaging_times[timepoint]
         timepoint_tag = Timepoint(timepoint, realtime)
 
         row = search.group("row")

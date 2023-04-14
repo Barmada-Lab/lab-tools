@@ -1,8 +1,7 @@
 from typing import Callable
 
-from improc.common.result import Result, Value
 from improc.experiment.types import Dataset, Experiment, Image
-from improc.processes.types import Task, TaskError
+from improc.processes.types import Task
 
 
 class Filter(Task):
@@ -12,9 +11,9 @@ class Filter(Task):
         self.predicate = predicate
         self.overwrite = overwrite
 
-    def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
+    def process(self, dataset: Dataset, experiment: Experiment) -> Dataset:
         new_dataset = experiment.new_dataset(self.output_label, overwrite=self.overwrite)
         for image in dataset.images:
             if self.predicate(image):
                 new_dataset.write_image(image.data, image.tags, image.axes)
-        return Value(new_dataset)
+        return new_dataset

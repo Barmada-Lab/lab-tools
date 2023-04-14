@@ -23,9 +23,8 @@ from skimage.transform import resize
 from scipy.spatial import KDTree
 from tqdm import tqdm
 
-from improc.common.result import Result, Value
 from improc.experiment.types import Dataset, Experiment, Exposure
-from improc.processes.types import Task, TaskError
+from improc.processes.types import Task
 from improc.utils import makeconfig, IJEncoding
 from .types import Neuron, ROI
 from . import utils
@@ -677,11 +676,11 @@ class SurvivalAnalysis(Task):
         self.threshold_multiplier = threshold_multiplier
         self.survival_script_path = survival_script_path
 
-    def process(self, dataset: Dataset, experiment: Experiment) -> Result[Dataset, TaskError]:
+    def process(self, dataset: Dataset, experiment: Experiment) -> Dataset:
         survival_channel = experiment.mfspec.morphology_channel
         inputs = [image.path for image in dataset.images if image.get_tag(Exposure).channel == survival_channel] # type: ignore
         mfile_path = experiment.experiment_dir
         analysis_dir = experiment.experiment_dir / "analysis"
         result_dir = experiment.experiment_dir / "results"
         SurvivalAnalyzer(inputs, mfile_path, self.model_path, analysis_dir, result_dir, self.survival_script_path).analyze(self.threshold_multiplier)
-        return Value(dataset)
+        return dataset

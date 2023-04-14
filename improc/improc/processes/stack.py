@@ -1,10 +1,11 @@
 from typing import Callable, Hashable
 
 import numpy as np
+from skimage import morphology
 from pystackreg import StackReg
 from skimage.filters import sobel
+#import largestinteriorrectangle as lir
 
-from improc.common.result import Error, Result, Value
 from improc.experiment.types import Axis, Exposure, Image, MemoryImage, Timepoint, Vertex
 from improc.processes.types import ManyToOneTask, TaskError
 
@@ -22,7 +23,7 @@ class Stack(ManyToOneTask):
     def group_pred(self, image: Image) -> Hashable:
         return (image.get_tag(Vertex), image.get_tag(Exposure))
 
-    def transform(self, images: list[Image]) -> Result[Image, TaskError]:
+    def transform(self, images: list[Image]) -> Image:
         ordered = np.array([img.data for img in sorted(images, key=lambda x: x.get_tag(Timepoint).index)]) # type: ignore
         tags = list(filter(lambda x: not isinstance(x, Timepoint), images[0].tags))
         axes = [Axis.T] + images[0].axes
@@ -32,7 +33,7 @@ class Stack(ManyToOneTask):
         time_axis = sr._detect_time_axis(reg_stack)
         if time_axis != 0 and not self.force_bad_reg: # If the registration is gonna be garbage, don't bother
             print(f"Bad registration for {images[0].vertex}; defaulting to stack w/o registration")
-            return Value(MemoryImage(ordered, axes, tags))
+            return MemoryImage(ordered, axes, tags)
 
         transforms = sr.register_stack(reg_stack, reference="previous")
         stacked = sr.transform_stack(np.array(ordered), tmats=transforms)
@@ -40,62 +41,26 @@ class Stack(ManyToOneTask):
             try:
                 stacked = crop(stacked)
             except:
-                print(images[0])
-                return Error(BadImageCantCrop())
-        return Value(MemoryImage(stacked, axes, tags))
+                raise Exception(f"Can't crop image: {images[0]}")
+        return MemoryImage(stacked, axes, tags)
 
-def composite_stack(stacks: np.ndarray, register_on: np.ndarray):
+def crop(stack: np.ndarray) -> np.ndarray:
+
+    return stack
+#min_poly = np.prod(stack != 0, axis=0)
+    #x1,y1,x2,y2 = lir.lir(min_poly.astype(bool))
+
+    return stack[:, y1:y2, x1:x2]
+
+def composite_stack(stacks: np.ndarray, register_on: np.ndarray) -> np.ndarray | None:
     assert stacks.ndim == 4
     assert register_on.ndim == 3
 
     sr = StackReg(StackReg.RIGID_BODY)
     time_axis = sr._detect_time_axis(register_on)
     if time_axis != 0:
-        print("bad registration")
-        return
+        return None
 
     transforms = sr.register_stack(register_on, reference="previous")
-    stacked = np.array([sr.transform_stack(stack, tmats=transforms) for stack in stacks])
-    return stacked
-
-def crop(stack: np.ndarray) -> np.ndarray:
-    # offset from image edges
-    max_left_offset = 0
-    max_right_offset = 0
-    max_top_offset = 0
-    max_bot_offset = 0
-
-    def first_false(x):
-        query = np.where(x == False)
-        if query[0].any():
-            return query[0][0]
-        else:
-            return 0
-
-    for frame in stack:
-        # find rows/columns that are entirely zero
-        col_borders = (frame == 0).all(axis=0)
-        row_borders = (frame == 0).all(axis=1)
-
-        if (left_offset := first_false(col_borders)) > max_left_offset:
-            max_left_offset = left_offset
-
-        if (right_offset := first_false(col_borders[::-1])) > max_right_offset:
-            max_right_offset = right_offset
-
-        if (top_offset := first_false(row_borders)) > max_top_offset:
-            max_top_offset = top_offset
-
-        if (bot_offset := first_false(row_borders)) > max_bot_offset:
-            max_bot_offset = bot_offset
-
-    # convert offsets back to array indices
-    last_row = stack.shape[2] - 1
-    last_col = stack.shape[1] - 1
-
-    min_row_idx = max_top_offset
-    max_row_idx = last_row - max_bot_offset
-    min_col_idx = max_left_offset
-    max_col_idx = last_col - max_right_offset
-
-    return stack[:, min_row_idx:max_row_idx, min_col_idx:max_col_idx]
+    stacked_cropped = np.array([crop(sr.transform_stack(stack, tmats=transforms)) for stack in stacks])
+    return stacked_cropped
