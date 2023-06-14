@@ -35,16 +35,14 @@ class LegacyLoader:
 
     def _try_load_mfile(self) -> MFSpec:
         experiment_name = self.name
-        glob = f"*{experiment_name}.csv"
-        try:
-            csv = next(self.path.glob(glob))
-        except StopIteration:
-            raise Exception(f'No csv of the form "{glob}" found in {self.path}')
-        mfile = read_mfile(csv)
-        if mfile is None:
-            raise Exception("ERROR ERROR ERROR ERROR ha ha this is all the information you get.")
-        return mfile
-
+        csvs = list(self.path.glob(f"*{experiment_name}.csv"))
+        if len(csvs) == 0:
+            raise Exception("no mfile found")
+        elif len(csvs) > 1:
+            raise Exception(f"ambiguous; more than one mfile found: {csvs}")
+        else:
+            mfile = read_mfile(csvs[0])
+            return mfile
 
     def extract_meta_rawpath(self, path: pathlib.Path) -> list[Tag]:
         """
