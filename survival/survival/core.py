@@ -3,6 +3,7 @@ from collections import defaultdict
 from collections.abc import Generator, Iterable
 from dataclasses import dataclass
 from multiprocessing import Pool
+import csv
 
 from skimage import exposure, morphology
 import numpy as np
@@ -15,7 +16,7 @@ import napari
 import os
 
 from improc.experiment.types import Channel, Exposure, Timepoint, Vertex, Dataset, Axis, Image, Mosaic
-from improc.processes import Task, Pipeline, BaSiC, Stitch, Stack, TaskError
+from improc.processes import Task, Pipeline, BaSiC, Stitch, Stack, TaskError, Filter
 from improc.experiment import Experiment, loader
 from improc.processes.stack import composite_stack, crop
 from skimage import filters, measure
@@ -23,10 +24,12 @@ from skimage import filters, measure
 from . import gedi
 from . import segmentation
 
+def filter_for_rfp(im: Image):
+    return (im.get_tag(Exposure)).channel == Channel.RFP # type: ignore
 
 def preprocess(experiment: Experiment, gedi: bool):
     elems: list[Task] = [
-        BaSiC(),
+        BaSiC()
     ]
     if not gedi:
         elems.append(Stack())
@@ -239,7 +242,7 @@ def calc_single_cell_survival_gfp(stacked: np.ndarray, stacks_output: Path | Non
 
     return df
 
-def make_stacks(experiment: Experiment) -> Iterable[tuple[str, np.ndarray | None]]:
+def make_stacks_gfp_method(experiment: Experiment) -> Iterable[tuple[str, np.ndarray | None]]:
     stitched = experiment.datasets["basic_corrected"]
     
     wells: set[str] = set()
@@ -273,9 +276,44 @@ def make_stacks(experiment: Experiment) -> Iterable[tuple[str, np.ndarray | None
         se = morphology.disk(4)
         gfp_opened = np.array([morphology.binary_opening(frame, se) for frame in gfp_thresh])
 
-        registered = composite_stack(np.array((gfp_raw, rfp_raw)), register_on=gfp_opened)
 
-        yield well, registered
+        sr = StackReg(StackReg.RIGID_BODY)
+        tmats = sr.register_stack(gfp_opened)
+
+        yield well, tmats
+
+def make_stacks_rfp_method(experiment: Experiment) -> Iterable[tuple[str, np.ndarray | None]]:
+    corrected = experiment.datasets["basic_corrected"]
+
+    wells: set[str] = set()
+    last_tp = 0
+    groups = defaultdict(list)
+    for im in corrected.images:
+        tp = im.get_tag(Timepoint).index # type:ignore
+        mosaic = "_".join(map(str,im.get_tag(Mosaic).index)) # type:ignore
+        vertex = f"{im.vertex}_{mosaic}" # type: ignore
+        groups[(vertex, tp)].append(im)
+        if tp > last_tp:
+            last_tp = tp
+        wells.add(vertex)
+
+    for well in wells:
+        chans = defaultdict(list)
+        for tp in range(last_tp + 1):
+            ordered = sorted(groups[(well, tp)], key=lambda im: im.get_tag(Exposure).channel)
+            for img in ordered:
+                chan = img.get_tag(Exposure).channel
+                chans[chan].append(img)
+
+        rfp = chans[Channel.RFP]
+    
+        rfp_raw = np.array([im.data for im in rfp])
+
+        gfp_norm = gedi._preprocess_gedi_rfp(rfp_raw)
+        gfp_thresh = [frame > np.percentile(frame, 99) for frame in gfp_norm]
+        # TODO
+        yield well, None
+
 
 def analysis(args):
     stack_loc, mask_output = args
@@ -299,12 +337,15 @@ def process(exp_path: Path, scratch_path: Path, save_stacks: bool, save_masks: b
     stacked_output = scratch_path / "stacked"
     if not stacked_output.exists() or len(list(stacked_output.glob("*.tif"))) == 0:
         os.makedirs(stacked_output, exist_ok=True)
-        for vertex, img in make_stacks(experiment):
-            if img is not None:
-                tifffile.imwrite(stacked_output / f"{vertex}.tif", img)
-                print(f"wrote {vertex}")
-            else:
-                print(f"couldn't process {vertex}")
+
+        transforms = []
+        for vertex, tmats in make_stacks_gfp_method(experiment):
+            transforms.append(tmats)
+
+        with open(results_path / "transforms.npy", "wb") as f:
+            np.save(f, np.array(transforms))
+
+    return
 
     mask_output = None
     if save_masks:
