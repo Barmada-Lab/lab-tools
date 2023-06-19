@@ -57,7 +57,7 @@ def _preprocess_gedi_rfp(stack: np.ndarray):
 def segment_death_stack(stack: np.ndarray, min_dia: int = 6, min_area: int = 20, max_area: int = 180):
 
     normalized = _preprocess_gedi_rfp(stack)
-    thresholded = np.array([frame > np.percentile(frame, 99) for frame in normalized])
+    thresholded = normalized > np.percentile(normalized, 90)
     se = morphology.disk(min_dia / 2)
     dead = np.array([morphology.opening(frame, se) for frame in thresholded])
     return dead

@@ -4,7 +4,7 @@ import numpy as np
 from skimage import morphology
 from pystackreg import StackReg
 from skimage.filters import sobel
-#import largestinteriorrectangle as lir
+import largestinteriorrectangle as lir
 
 from improc.experiment.types import Axis, Exposure, Image, MemoryImage, Timepoint, Vertex
 from improc.processes.types import ManyToOneTask, TaskError
@@ -46,9 +46,8 @@ class Stack(ManyToOneTask):
 
 def crop(stack: np.ndarray) -> np.ndarray:
 
-    return stack
-#min_poly = np.prod(stack != 0, axis=0)
-    #x1,y1,x2,y2 = lir.lir(min_poly.astype(bool))
+    min_poly = np.prod(stack != 0, axis=0)
+    x1,y1,x2,y2 = lir.lir(min_poly.astype(bool))
 
     return stack[:, y1:y2, x1:x2]
 

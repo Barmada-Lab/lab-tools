@@ -1,6 +1,0 @@
-{
-    "python.analysis.typeCheckingMode": "basic",
-    "files.watcherExclude": {
-        "**/target": true
-    }
-}
