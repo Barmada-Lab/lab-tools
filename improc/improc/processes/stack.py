@@ -51,15 +51,9 @@ def crop(stack: np.ndarray) -> np.ndarray:
 
     return stack[:, y1:y2, x1:x2]
 
-def composite_stack(stacks: np.ndarray, register_on: np.ndarray) -> np.ndarray | None:
+def composite_stack(stacks: np.ndarray, tmats: np.ndarray) -> np.ndarray | None:
     assert stacks.ndim == 4
-    assert register_on.ndim == 3
 
     sr = StackReg(StackReg.RIGID_BODY)
-    time_axis = sr._detect_time_axis(register_on)
-    if time_axis != 0:
-        return None
-
-    transforms = sr.register_stack(register_on, reference="previous")
-    stacked_cropped = np.array([crop(sr.transform_stack(stack, tmats=transforms)) for stack in stacks])
+    stacked_cropped = np.array([crop(sr.transform_stack(stack, tmats=tmats)) for stack in stacks])
     return stacked_cropped
