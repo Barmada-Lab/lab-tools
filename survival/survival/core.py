@@ -430,7 +430,8 @@ def analysis(args):
     if stacked is None:
         return vertex, None, None
 
-    df = event_survival_gfp(stacked[0], mask_output / f"{vertex}.tif") # type: ignore
+    mask_output = None if mask_output is None else mask_output / f"{vertex}.tif"
+    df = event_survival_gfp(stacked[0], mask_output) # type: ignore
     return vertex, stacked, df
 
 def process(exp_path: Path, scratch_path: Path, save_stacks: bool, save_masks: bool, single_cell: bool, use_gedi: bool, cpus: int):
@@ -448,7 +449,6 @@ def process(exp_path: Path, scratch_path: Path, save_stacks: bool, save_masks: b
         for well, stacked in make_stacks_avg_reg(experiment):
             tifffile.imwrite(stacked_output / f"{well}.tif", stacked)
 
-    return
 
     mask_output = None
     if save_masks:
