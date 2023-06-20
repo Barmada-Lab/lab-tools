@@ -329,77 +329,86 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
             last_tp = tp
         wells.add(vertex)
 
-    transformation_stacks = []
-    for well in wells:
-        chans = defaultdict(list)
-        for tp in range(last_tp + 1):
-            ordered = sorted(groups[(well, tp)], key=lambda im: im.get_tag(Exposure).channel)
-            for img in ordered:
-                chan = img.get_tag(Exposure).channel
-                chans[chan].append(img)
+    if not (experiment.experiment_dir / "results" / "transforms.npy").exists():
+        transformation_stacks = []
+        for well in wells:
+            chans = defaultdict(list)
+            for tp in range(last_tp + 1):
+                ordered = sorted(groups[(well, tp)], key=lambda im: im.get_tag(Exposure).channel)
+                for img in ordered:
+                    chan = img.get_tag(Exposure).channel
+                    chans[chan].append(img)
 
-        gfp = chans[Channel.GFP]
+            gfp = chans[Channel.GFP]
 
-        # TEMP
-        if len(gfp) == 11:
-            gfp = gfp[1:]
+            # TEMP
+            if len(gfp) == 11:
+                gfp = gfp[1:]
 
-        gfp_raw = np.array([im.data for im in gfp])
+            gfp_raw = np.array([im.data for im in gfp])
 
-        gfp_norm = gedi._preprocess_gedi_rfp(gfp_raw)
-        gfp_thresh = [frame > np.percentile(frame, 99) for frame in gfp_norm]
-        se = morphology.disk(4)
-        gfp_opened = np.array([morphology.binary_opening(frame, se) for frame in gfp_thresh])
+            gfp_norm = gedi._preprocess_gedi_rfp(gfp_raw)
+            filtered = np.array([filters.butterworth(frame, cutoff_frequency_ratio=0.1, high_pass=False) for frame in gfp_norm])
+            sobeld = np.array([filters.sobel(frame) for frame in filtered])
 
-        sr = StackReg(StackReg.RIGID_BODY)
-        transforms = sr.register_stack(gfp_opened)
-        transformation_stacks.append(transforms)
+            sr = StackReg(StackReg.RIGID_BODY)
+            transforms = sr.register_stack(sobeld)
+            transformation_stacks.append(transforms)
 
-    transformation_stacks = np.array(transformation_stacks)
+        transformation_stacks = np.array(transformation_stacks)
 
-    def centroid(pts):
-        length = pts.shape[0]
-        sum_x = np.sum(pts[:,0])
-        sum_y = np.sum(pts[:,1])
-        return sum_x / length, sum_y / length
+        os.makedirs(experiment.experiment_dir / "results", exist_ok=True)
+        with open(experiment.experiment_dir / "results" / "transforms.npy", "wb") as f:
+            np.save(f, transformation_stacks)
 
-    def dist(p1, p2):
-        dx_sq = (p1[0] - p2[0]) ** 2
-        dy_sq = (p1[1] - p2[1]) ** 2
-        return np.sqrt(dx_sq + dy_sq)
+        def centroid(pts):
+            length = pts.shape[0]
+            sum_x = np.sum(pts[:,0])
+            sum_y = np.sum(pts[:,1])
+            return sum_x / length, sum_y / length
 
-    tmats = []
-    for idx in range(transformation_stacks.shape[1]):
-        translations = transformation_stacks[:, idx, :-1, -1]
-        rough_centroid = centroid(translations)
-        distances = np.array([dist(rough_centroid, tmat) for tmat in translations])
+        def dist(p1, p2):
+            dx_sq = (p1[0] - p2[0]) ** 2
+            dy_sq = (p1[1] - p2[1]) ** 2
+            return np.sqrt(dx_sq + dy_sq)
 
-        xthresh = np.percentile(distances, 95)
+        tmats = []
+        for idx in range(transformation_stacks.shape[1]):
+            translations = transformation_stacks[:, idx, :-1, -1]
+            rough_centroid = centroid(translations)
+            distances = np.array([dist(rough_centroid, tmat) for tmat in translations])
 
-        xthreshd = np.array([tmat for tmat in translations if dist(rough_centroid, tmat) < xthresh])
-        if len(xthreshd) > 0:
-            x, y = centroid(xthreshd)
-        else:
-            x, y = rough_centroid
+            xthresh = np.percentile(distances, 50)
 
-        thetas = np.arccos(transformation_stacks[:, idx, 0, 0])
-        avg_theta = np.sum(thetas) / thetas.shape[0]
-        d_theta = np.abs(thetas - avg_theta)
-        theta_thresh = np.percentile(d_theta, 95)
-        theta_threshd = np.array([theta for theta in thetas if np.abs(theta - avg_theta) < theta_thresh])
+            xthreshd = np.array([tmat for tmat in translations if dist(rough_centroid, tmat) < xthresh])
+            if len(xthreshd) > 0:
+                x, y = centroid(xthreshd)
+            else:
+                x, y = rough_centroid
 
-        if len(theta_threshd) <= 1:
-            theta = 0
-        else:
-            theta = np.sum(theta_threshd) / theta_threshd.shape[0]
+            thetas = np.arccos(transformation_stacks[:, idx, 0, 0])
+            avg_theta = np.sum(thetas) / thetas.shape[0]
+            d_theta = np.abs(thetas - avg_theta)
+            theta_thresh = np.percentile(d_theta, 50)
+            theta_threshd = np.array([theta for theta in thetas if np.abs(theta - avg_theta) < theta_thresh])
 
-        print(x, y, theta)
-        tmat = np.array([
-            (np.cos(theta), -np.sin(theta), x),
-            (np.sin(theta),  np.cos(theta), y),
-            (0            ,  0            , 1)
-        ])
-        tmats.append(tmat)
+            if len(theta_threshd) <= 1:
+                theta = 0
+            else:
+                theta = np.sum(theta_threshd) / theta_threshd.shape[0]
+
+            print(x, y, theta)
+            tmat = np.array([
+                (np.cos(theta), -np.sin(theta), x),
+                (np.sin(theta),  np.cos(theta), y),
+                (0            ,  0            , 1)
+            ])
+            tmats.append(tmat)
+
+        tmats = np.array(tmats)
+    else:
+        with open(experiment.experiment_dir / "results" / "transforms.npy", "rb") as f:
+            tmats = np.load(f, allow_pickle=True)
 
     for well in wells:
         chans = defaultdict(list)
@@ -419,7 +428,7 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
         gfp_raw = np.array([im.data for im in gfp])
         rfp_raw = np.array([im.data for im in rfp])
 
-        transformed = composite_stack(np.array((gfp_raw, rfp_raw)), np.array(tmats))
+        transformed = composite_stack(np.array((gfp_raw, rfp_raw)), tmats)
         yield well, transformed
 
 
@@ -430,11 +439,11 @@ def analysis(args):
     if stacked is None:
         return vertex, None, None
 
-    mask_output = None if mask_output is None else mask_output / f"{vertex}.tif"
+    mask_output = None if mask_output is None else mask_output / stack_loc.name
     df = event_survival_gfp(stacked[0], mask_output) # type: ignore
     return vertex, stacked, df
 
-def process(exp_path: Path, scratch_path: Path, save_stacks: bool, save_masks: bool, single_cell: bool, use_gedi: bool, cpus: int):
+def process(exp_path: Path, scratch_path: Path, save_stacks: bool, save_masks: bool, single_cell: bool, use_gedi: bool, avg_reg: bool, cpus: int):
     experiment = loader.load_experiment(exp_path, scratch_path)
 
     results_path = exp_path / "results"
@@ -446,7 +455,8 @@ def process(exp_path: Path, scratch_path: Path, save_stacks: bool, save_masks: b
     stacked_output = scratch_path / "stacked"
     if not stacked_output.exists() or len(list(stacked_output.glob("*.tif"))) == 0:
         os.makedirs(stacked_output, exist_ok=True)
-        for well, stacked in make_stacks_avg_reg(experiment):
+        reg = make_stacks_avg_reg if avg_reg else make_stacks_gfp_method
+        for well, stacked in reg(experiment):
             tifffile.imwrite(stacked_output / f"{well}.tif", stacked)
 
 
