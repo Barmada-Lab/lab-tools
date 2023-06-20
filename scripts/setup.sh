@@ -40,6 +40,10 @@ idem_patch_bashprofile() {
     fi
 }
 
+if [ ! -f $HOME/.bash_profile ]; then
+    touch $HOME/.bash_profile
+fi
+
 idem_patch_bashprofile 'export PATH=$PATH:$HOME/.local/bin:$HOME/bin'
 idem_patch_bashprofile 'export PATH=$HOME/.pyenv/shims:$PATH'
 idem_patch_bashprofile 'export PATH=$HOME/.pyenv/bin:$PATH'
