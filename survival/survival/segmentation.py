@@ -18,8 +18,8 @@ def segment_soma_iN_gfp(normalized: np.ndarray, min_dia: int = 8, cutoff_freq: f
     # crude_mask = rescaled > thresh
 
     se = morphology.disk(min_dia / 2)
-    h = np.percentile(normalized, 99)
-    segmented = morphology.binary_opening(normalized > h, footprint=se) 
+    thresh = filters.threshold_otsu(normalized)
+    segmented = morphology.binary_opening(normalized > thresh, footprint=se) 
 
     return segmented
 
