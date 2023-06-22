@@ -1,7 +1,7 @@
 from typing import Tuple
 import numpy as np
 from numpy.typing import ArrayLike
-from scipy import ndimage
+from scipy import ndimage # type: ignore
 import math
 
 def freq_norm_sq(shape):

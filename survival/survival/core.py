@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from multiprocessing import Pool
 import csv
 
-from skimage import exposure, morphology
 import numpy as np
 from pystackreg import StackReg
 import itertools
@@ -19,7 +18,7 @@ from improc.experiment.types import Channel, Exposure, Timepoint, Vertex, Datase
 from improc.processes import Task, Pipeline, BaSiC, Stitch, Stack, TaskError, Filter
 from improc.experiment import Experiment, loader
 from improc.processes.stack import composite_stack, crop
-from skimage import filters, measure
+from skimage import filters, measure, morphology
 
 from . import gedi
 from . import segmentation
@@ -64,8 +63,8 @@ def event_survival_gedi_gfp(
     as follows:
 
     1. segment somas in GFP
-    2. filter out clumped cells from the soma segmentation
-    3. calculate the average area of a single cell from the filtered soma segmentation
+    2. filter by size to remove large clumps from the soma segmentation
+    3. calculate the average cell area from the filtered segmentation
     4. determine the approximate number of cells at t0 by dividing the area of the 
         (unfiltered) soma segmentation by the average single-cell area.
 
@@ -94,7 +93,9 @@ def event_survival_gedi_gfp(
     if 0 in gfp.shape or 0 in rfp.shape:
         return None
 
-    segmented = segmentation.segment_stack(gfp)
+    lowpass_gfp = np.array([filters.butterworth(frame, cutoff_frequency_ratio=0.1, high_pass=False) for frame in gfp])
+    normalized_gfp = gedi._preprocess_gedi_rfp(lowpass_gfp)
+    segmented = segmentation.segment_stack(normalized_gfp)
 
     # df = pd.DataFrame(columns=["n_t0", "n_dead"]).rename_axis("id")
 
@@ -272,15 +273,13 @@ def make_stacks_gfp_method(experiment: Experiment) -> Iterable[tuple[str, np.nda
         rfp_raw = np.array([im.data for im in rfp])
 
         gfp_norm = gedi._preprocess_gedi_rfp(gfp_raw)
-        gfp_thresh = [frame > np.percentile(frame, 99) for frame in gfp_norm]
-        se = morphology.disk(4)
-        gfp_opened = np.array([morphology.binary_opening(frame, se) for frame in gfp_thresh])
-
+        sobeld = np.array([filters.sobel(frame) for frame in gfp_norm])
 
         sr = StackReg(StackReg.RIGID_BODY)
-        tmats = sr.register_stack(gfp_opened)
+        tmats = sr.register_stack(sobeld)
+        transformed = composite_stack(np.array((gfp_raw, rfp_raw)), tmats)
 
-        yield well, tmats
+        yield well, transformed
 
 def make_stacks_rfp_method(experiment: Experiment) -> Iterable[tuple[str, np.ndarray | None]]:
     corrected = experiment.datasets["basic_corrected"]
@@ -348,7 +347,7 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
             gfp_raw = np.array([im.data for im in gfp])
 
             gfp_norm = gedi._preprocess_gedi_rfp(gfp_raw)
-            filtered = np.array([filters.butterworth(frame, cutoff_frequency_ratio=0.1, high_pass=False) for frame in gfp_norm])
+            filtered = np.array([filters.butterworth(frame, high_pass=False, cutoff_frequency_ratio=0.1) for frame in gfp_norm])
             sobeld = np.array([filters.sobel(frame) for frame in filtered])
 
             sr = StackReg(StackReg.RIGID_BODY)
