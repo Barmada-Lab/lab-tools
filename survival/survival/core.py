@@ -442,7 +442,7 @@ def analysis(args):
     df = event_survival_gfp(stacked[0], mask_output) # type: ignore
     return vertex, stacked, df
 
-def process(exp_path: Path, scratch_path: Path, save_stacks: bool, save_masks: bool, single_cell: bool, use_gedi: bool, avg_reg: bool, cpus: int):
+def process(exp_path: Path, scratch_path: Path, save_masks: bool, single_cell: bool, use_gedi: bool, avg_reg: bool, cpus: int):
     experiment = loader.load_experiment(exp_path, scratch_path)
 
     results_path = exp_path / "results"
@@ -466,7 +466,7 @@ def process(exp_path: Path, scratch_path: Path, save_stacks: bool, save_masks: b
 
     dfs = []
     if use_gedi and single_cell:
-        # for well, stacked in stack_gfp_gedi(experiment, save_stacks):
+        # for well, stacked in stack_gfp_gedi(experiment):
         #     df = calc_single_cell_survival_gedi(stacked)
         #     if df is not None:
         #         df["well"] = well
