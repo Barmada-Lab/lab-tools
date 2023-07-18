@@ -439,7 +439,7 @@ def analysis(args):
         return vertex, None, None
 
     mask_output = None if mask_output is None else mask_output / stack_loc.name
-    df = event_survival_gfp(stacked[0], mask_output) # type: ignore
+    df = event_survival_gedi_gfp(stacked, mask_output) # type: ignore
     return vertex, stacked, df
 
 def process(exp_path: Path, scratch_path: Path, save_masks: bool, single_cell: bool, use_gedi: bool, avg_reg: bool, cpus: int):
