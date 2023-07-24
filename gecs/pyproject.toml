@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "gecs"
+version = "0.1.0"
+description = ""
+authors = ["jake <jwaksmac@umich.edu>"]
+
+[tool.poetry.scripts]
+gecs = "gecs.cli:main"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.11"
+cvat-sdk = "^2.5.0"
+pydantic = "<2.0.0"
+tifffile = "^2023.7.18"
+improc = { path = "../improc", develop = true }
+scikit-image = "^0.19.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
