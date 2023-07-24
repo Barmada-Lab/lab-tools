@@ -26,14 +26,6 @@ from . import segmentation
 def filter_for_rfp(im: Image):
     return (im.get_tag(Exposure)).channel == Channel.RFP # type: ignore
 
-def preprocess(experiment: Experiment, gedi: bool):
-    elems: list[Task] = [
-        BaSiC()
-    ]
-    if not gedi:
-        elems.append(Stack())
-    pipeline = Pipeline(*elems)
-    pipeline.run(experiment, "raw_imgs")
 
 @dataclass
 class SurvivalResult:
@@ -449,15 +441,19 @@ def process(exp_path: Path, scratch_path: Path, save_masks: bool, single_cell: b
     os.makedirs(results_path, exist_ok=True)
 
     if "basic_corrected" not in experiment.datasets:
-        preprocess(experiment, use_gedi)
-    
+        elems: list[Task] = [ BaSiC() ]
+        if not gedi:
+            # stitch early for GFP
+            elems.append(Stack())
+        pipeline = Pipeline(*elems)
+        pipeline.run(experiment, "raw_imgs")
+
     stacked_output = scratch_path / "stacked"
     if not stacked_output.exists() or len(list(stacked_output.glob("*.tif"))) == 0:
         os.makedirs(stacked_output, exist_ok=True)
         reg = make_stacks_avg_reg if avg_reg else make_stacks_gfp_method
         for well, stacked in reg(experiment):
             tifffile.imwrite(stacked_output / f"{well}.tif", stacked)
-
 
     mask_output = None
     if save_masks:
@@ -487,6 +483,7 @@ def process(exp_path: Path, scratch_path: Path, save_masks: bool, single_cell: b
                     print(f"failed to process {vertex}")
 
     elif not use_gedi and single_cell:
+
         for im in experiment.datasets["stacked"].images:
             if im.get_tag(Exposure).channel != Channel.GFP: # type: ignore
                 continue
@@ -500,6 +497,7 @@ def process(exp_path: Path, scratch_path: Path, save_masks: bool, single_cell: b
 
     elif not use_gedi and not single_cell:
         for im in experiment.datasets["stacked"].images:
+
             if im.get_tag(Exposure).channel != Channel.GFP: # type: ignore
                 continue
             df = event_survival_gfp(im.data, mask_output / f"{im.vertex}.tiff") # type: ignore
