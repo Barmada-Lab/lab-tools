@@ -424,14 +424,17 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
 
 
 def analysis(args):
-    stack_loc, mask_output = args
+    stack_loc, mask_output, use_gedi = args
     stacked = tifffile.imread(stack_loc)
     vertex = stack_loc.name.replace(".tif","")
     if stacked is None:
         return vertex, None, None
 
     mask_output = None if mask_output is None else mask_output / stack_loc.name
-    df = event_survival_gedi_gfp(stacked, mask_output) # type: ignore
+    if use_gedi:
+        df = event_survival_gedi_gfp(stacked, mask_output) # type: ignore
+    else:
+        df = event_survival_gfp(stacked[0], mask_output) # type: ignore
     return vertex, stacked, df
 
 def process(exp_path: Path, scratch_path: Path, save_masks: bool, single_cell: bool, use_gedi: bool, avg_reg: bool, cpus: int):
@@ -474,7 +477,7 @@ def process(exp_path: Path, scratch_path: Path, save_masks: bool, single_cell: b
     elif use_gedi and not single_cell:
 
         with Pool(cpus) as p:
-            for vertex, stacked, df in p.imap_unordered(analysis, zip(stacked_output.glob("*.tif"), itertools.repeat(mask_output))):
+            for vertex, stacked, df in p.imap_unordered(analysis, zip(stacked_output.glob("*.tif"), itertools.repeat(mask_output), itertools.repeat(use_gedi))):
                 if df is not None:
                     df["well"] = vertex
                     dfs.append(df)
@@ -496,17 +499,15 @@ def process(exp_path: Path, scratch_path: Path, save_masks: bool, single_cell: b
                 print(f"failed to process {im.vertex}")
 
     elif not use_gedi and not single_cell:
-        for im in experiment.datasets["stacked"].images:
+        with Pool(cpus) as p:
+            for vertex, stacked, df in p.imap_unordered(analysis, zip(stacked_output.glob("*.tif"), itertools.repeat(mask_output), itertools.repeat(use_gedi))):
+                if df is not None:
+                    df["well"] = vertex
+                    dfs.append(df)
+                    print(f"processed {vertex}")
+                else:
+                    print(f"failed to process {vertex}")
 
-            if im.get_tag(Exposure).channel != Channel.GFP: # type: ignore
-                continue
-            df = event_survival_gfp(im.data, mask_output / f"{im.vertex}.tiff") # type: ignore
-            if df is not None:
-                df["well"] = im.vertex # type: ignore
-                dfs.append(df)
-                print(f"processed {im.vertex}")
-            else:
-                print(f"failed to process {im.vertex}")
 
     pd.concat(dfs).to_csv(results_path / "survival.csv")
     
