@@ -18,6 +18,7 @@ class Composite(ManyToOneTask):
 
     def __init__(self, out_depth=np.uint8, overwrite=False) -> None:
         super().__init__("composited", overwrite)
+        self.out_depth = out_depth
 
     def group_pred(self, image: Image) -> Hashable:
         return (
@@ -46,7 +47,8 @@ class Composite(ManyToOneTask):
     def transform(self, images: list[Image]) -> Image:
         ordered_images = sorted(images, key=lambda image: image.get_tag(Exposure).channel) # type: ignore
 
-        data = np.array([self.color_img(image) for image in ordered_images])
+        data = np.sum([self.color_img(image) for image in ordered_images])
+        rescaled = exposure.rescale_intensity(data, out_range=self.out_depth)
         axes = ordered_images[0].axes
         tags = [tag for tag in images[0].tags if not isinstance(tag, Exposure)]
-        return MemoryImage(data, axes, tags)
+        return MemoryImage(rescaled, axes, tags)

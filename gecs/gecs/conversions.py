@@ -6,13 +6,14 @@ from improc.experiment import loader
 from improc.experiment.types import Image, Axis, MemoryImage, Timepoint, Vertex
 from improc.processes import OneToOneTask, Pipeline
 from improc.processes.composite import Composite
+from improc.processes.rescale import Rescale
 
 class ConvertHack(OneToOneTask):
     def __init__(self, overwrite=False) -> None:
         super().__init__("raw_converted", overwrite=overwrite)
     
     def transform(self, image: Image) -> Image:
-        # the "hack" creates multiple timepoints, even though the imaging is one timepoint.
+        # the "hack" creates multiple timepoints, even though there's really only one
         timepoint = image.get_tag(Timepoint)
         vertex = image.get_tag(Vertex)
 
@@ -41,6 +42,7 @@ def composite_icc_hack(experiment_path: Path, scratch_path: Path):
     experiment = loader.load_experiment(experiment_path, scratch_path)
     pipeline = Pipeline(
         ConvertHack(),
+        Rescale((0.5,99.5)),
         Composite()
     )
     pipeline.run(experiment, "raw_imgs")
