@@ -15,5 +15,5 @@ def analyze(experiment: Experiment):
 
     df = surv_data.drop(["id","well"], axis=1)
     cph = CoxPHFitter()
-    cph.fit(df, duration_col="tp", event_col="event", strata="group")
+    cph.fit(df, duration_col="tp", event_col="dead", strata="group")
     return cph
