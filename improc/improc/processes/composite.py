@@ -16,7 +16,7 @@ class Composite(ManyToOneTask):
         Channel.White: "#ffffff",
     }
 
-    def __init__(self, out_depth=np.uint8, overwrite=False) -> None:
+    def __init__(self, out_depth="uint16", overwrite=False) -> None:
         super().__init__("composited", overwrite)
         self.out_depth = out_depth
 
@@ -47,7 +47,7 @@ class Composite(ManyToOneTask):
     def transform(self, images: list[Image]) -> Image:
         ordered_images = sorted(images, key=lambda image: image.get_tag(Exposure).channel) # type: ignore
 
-        data = np.sum([self.color_img(image) for image in ordered_images])
+        data = np.sum([self.color_img(image) for image in ordered_images], axis=0)
         rescaled = exposure.rescale_intensity(data, out_range=self.out_depth)
         axes = ordered_images[0].axes
         tags = [tag for tag in images[0].tags if not isinstance(tag, Exposure)]

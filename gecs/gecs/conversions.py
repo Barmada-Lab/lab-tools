@@ -1,6 +1,7 @@
 from typing import Any
 
 from pathlib import Path
+import numpy as np
 
 from improc.experiment import loader
 from improc.experiment.types import Image, Axis, MemoryImage, Timepoint, Vertex
@@ -42,7 +43,7 @@ def composite_icc_hack(experiment_path: Path, scratch_path: Path):
     experiment = loader.load_experiment(experiment_path, scratch_path)
     pipeline = Pipeline(
         ConvertHack(),
-        Rescale((0.5,99.5)),
-        Composite()
+        Rescale((0.5, 99.5)),
+        Composite(out_depth="uint8")
     )
     pipeline.run(experiment, "raw_imgs")
