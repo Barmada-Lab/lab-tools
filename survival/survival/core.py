@@ -332,10 +332,6 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
 
             gfp = chans[Channel.GFP]
 
-            # TEMP
-            if len(gfp) == 11:
-                gfp = gfp[1:]
-
             gfp_raw = np.array([im.data for im in gfp])
 
             gfp_norm = gedi._preprocess_gedi_rfp(gfp_raw)
