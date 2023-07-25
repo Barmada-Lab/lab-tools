@@ -13,6 +13,7 @@ cvat-sdk = "^2.5.0"
 pydantic = "<2.0.0"
 tifffile = "^2023.7.18"
 improc = { path = "../improc", develop = true }
+survival = { path = "../survival", develop = true }
 scikit-image = "^0.19.3"
 
 [build-system]
