@@ -408,10 +408,6 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
         gfp = chans[Channel.GFP]
         rfp = chans[Channel.RFP]
 
-        if len(gfp) == 11:
-            gfp = gfp[1:]
-            rfp = rfp[1:]
-
         gfp_raw = np.array([im.data for im in gfp])
         rfp_raw = np.array([im.data for im in rfp])
 
