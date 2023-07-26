@@ -10,17 +10,17 @@ import os
 from survival.gedi import _preprocess_gedi_rfp
 from improc.experiment.types import Vertex, Mosaic, Exposure, Channel, Timepoint
 from improc.experiment import loader
-from improc.processes import BaSiC, Stitch, Pipeline
+from improc.processes import BaSiC, Stitch, Pipeline, Task
 
 
-def stitch_n_stack(experiment_path: Path, scratch_path: Path, legacy: bool):
+def stitch_n_stack(experiment_path: Path, scratch_path: Path, legacy: bool, out_range: str = "uint16", stitch: bool = True):
 
     experiment = loader.load_experiment(experiment_path, scratch_path)
-    # initial_pipeline = Pipeline(
-    #     BaSiC(),
-    #     Stitch(),
-    # )
-    # initial_pipeline.run(experiment, "raw_imgs")
+    steps: list[Task] = [ BaSiC() ]
+    if stitch:
+        steps.append(Stitch())
+    initial_pipeline = Pipeline(*steps)
+    initial_pipeline.run(experiment, "raw_imgs")
 
     # now stack based on GFP registration
     locs = defaultdict(list)
@@ -45,14 +45,14 @@ def stitch_n_stack(experiment_path: Path, scratch_path: Path, legacy: bool):
         sr = StackReg(StackReg.RIGID_BODY)
         tmats = sr.register_stack(gfp_filtered)
         gfp_registered = sr.transform_stack(gfp_filtered, tmats=tmats)
-        gfp_rescaled = exposure.rescale_intensity(gfp_registered, out_range=np.uint16)
+        gfp_rescaled = exposure.rescale_intensity(gfp_registered, out_range=out_range)
 
         rfp_imgs = sorted(chans[Channel.RFP], key=sorting_key)
         rfp = np.array([im.data for im in rfp_imgs])
         rfp_norm = _preprocess_gedi_rfp(np.array(rfp))
         rfp_filtered = np.array([filters.butterworth(frame, high_pass=False, cutoff_frequency_ratio=0.1) for frame in rfp_norm])
         rfp_registered = sr.transform_stack(rfp_filtered, tmats=tmats)
-        rfp_rescaled = exposure.rescale_intensity(rfp_registered, out_range=np.uint16)
+        rfp_rescaled = exposure.rescale_intensity(rfp_registered, out_range=out_range)
 
         if legacy:
             outpath_gfp = scratch_path / "stacked" / "GFP" / f"{vertex.label}.tif"

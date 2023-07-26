@@ -13,6 +13,7 @@ from improc.experiment import loader
 from improc.experiment.types import Image, Axis, MemoryImage, Timepoint, Vertex, Channel, Exposure, Mosaic
 from improc.processes import OneToOneTask, Pipeline
 from improc.processes import BaSiC
+from improc.processes import stack
 from improc.processes.composite import Composite
 
 class ConvertHack(OneToOneTask):
@@ -54,12 +55,7 @@ def composite_icc_hack(experiment_path: Path, scratch_path: Path):
     )
     pipeline.run(experiment, "raw_imgs")
 
-def reg_preprocessing(img: np.ndarray) -> np.ndarray:
-    norm = _preprocess_gedi_rfp(np.array((img, img)))[0] # just normalizes
-    filtered = filters.butterworth(norm, high_pass=False, cutoff_frequency_ratio=0.1)
-    return filtered
-
-def composite_survival(experiment_path, scratch_path: Path):
+def composite_survival(experiment_path, scratch_path: Path, ignore_channels: list[Channel] = []):
     """ 
     Composites images acquired using the imaging script "survival," 
     typically for the purposes of survival imaging.
@@ -93,20 +89,22 @@ def composite_survival(experiment_path, scratch_path: Path):
 
         gfp = [im.data for im in sorted(chans[Channel.GFP], key=ordering_key)]
         gfp_norm = _preprocess_gedi_rfp(np.array(gfp))
-        gfp_filtered = np.array([filters.butterworth(frame, high_pass=False, cutoff_frequency_ratio=0.1) for frame in gfp_norm])
+        # gfp_filtered = np.array([filters.butterworth(frame, high_pass=False, cutoff_frequency_ratio=0.2) for frame in gfp_norm])
         sr = StackReg(StackReg.RIGID_BODY)
-        tmats = sr.register_stack(gfp_filtered)
-        gfp_registered = sr.transform_stack(gfp_filtered, tmats=tmats)
+        tmats = sr.register_stack(gfp_norm)
+        gfp_registered = sr.transform_stack(gfp_norm, tmats=tmats)
+        gfp_registered = stack.crop(gfp_registered)
 
         reg_timeseries = { Channel.GFP: gfp_registered }
         for chan, images in chans.items():
-            if chan == Channel.GFP or chan == Channel.BRIGHTFIELD or chan == Channel.White:
+            if chan == Channel.GFP or chan in ignore_channels:
                 continue
 
             frames = [im.data for im in sorted(images, key=ordering_key)]
             frames_norm = _preprocess_gedi_rfp(np.array(frames))
-            frames_filtered = np.array([filters.butterworth(frame, high_pass=False, cutoff_frequency_ratio=0.1) for frame in frames_norm])
-            frames_reg = sr.transform_stack(frames_filtered, tmats=tmats)
+            # frames_filtered = np.array([filters.butterworth(frame, high_pass=False, cutoff_frequency_ratio=0.2) for frame in frames_norm])
+            frames_reg = sr.transform_stack(frames_norm, tmats=tmats)
+            frames_reg = stack.crop(frames_reg)
             reg_timeseries[chan] = frames_reg
 
         sum_img = np.zeros((*gfp_registered.shape,3))
@@ -116,5 +114,5 @@ def composite_survival(experiment_path, scratch_path: Path):
             sum_img += colored
         
         sum_img = exposure.rescale_intensity(sum_img, out_range="uint8")
-        mosaic_label = "_".join(mosaic.index)
+        mosaic_label = "_".join(map(str, mosaic.index))
         tifffile.imwrite(scratch_path / "composited" / f"{vertex.label}-{mosaic_label}.tif", sum_img)
