@@ -392,7 +392,7 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
             ])
             tmats.append(tmat)
 
-        tmats = np.array(tmats)
+        tmats = np.median(tmats, axis=0)
     else:
         with open(experiment.experiment_dir / "results" / "transforms.npy", "rb") as f:
             tmats = np.load(f, allow_pickle=True)
