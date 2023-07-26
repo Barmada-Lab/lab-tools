@@ -14,6 +14,7 @@ class Composite(ManyToOneTask):
         Channel.GFP: "#00ff00",
         Channel.Cy5: "#ff0000",
         Channel.White: "#ffffff",
+        Channel.BRIGHTFIELD: "#ffffff",
     }
 
     def __init__(self, out_depth="uint16", overwrite=False) -> None:
@@ -27,9 +28,7 @@ class Composite(ManyToOneTask):
             image.get_tag(Timepoint)
         )
 
-    def color_img(self, image: Image):
-        data = image.data
-        channel = image.get_tag(Exposure).channel # type: ignore
+    def color_img(self, data: np.ndarray, channel: Channel):
         data = exposure.rescale_intensity(data, out_range=np.float32)
         data /= data.max()
         data_rgb = np.stack([data, data, data], axis=-1)
@@ -47,7 +46,7 @@ class Composite(ManyToOneTask):
     def transform(self, images: list[Image]) -> Image:
         ordered_images = sorted(images, key=lambda image: image.get_tag(Exposure).channel) # type: ignore
 
-        data = np.sum([self.color_img(image) for image in ordered_images], axis=0)
+        data = np.sum([self.color_img(image.data, image.get_tag(Exposure).channel) for image in ordered_images], axis=0)
         rescaled = exposure.rescale_intensity(data, out_range=self.out_depth)
         axes = ordered_images[0].axes
         tags = [tag for tag in images[0].tags if not isinstance(tag, Exposure)]
