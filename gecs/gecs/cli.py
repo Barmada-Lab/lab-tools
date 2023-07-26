@@ -11,8 +11,7 @@ def parse_args():
 
     cvat_deploy = subparsers.add_parser('cvat-deploy')
     cvat_deploy.add_argument('project_name')
-    cvat_deploy.add_argument('img_dims')
-    cvat_deploy.add_argument('images', nargs='+')
+    cvat_deploy.add_argument('images', nargs='+', type=Path)
 
     composite = subparsers.add_parser('composite')
     composite.add_argument('experiment_dir', type=Path)
@@ -35,8 +34,8 @@ def main():
 
     match args.command:
         case 'cvat-deploy':
-            from gecs.cvat import deploy
-            deploy(args.project_name, args.img_dims, args.images)
+            from gecs.cvat import deploy_ts
+            deploy_ts(args.project_name, args.images)
         case 'composite':
             from gecs.composite import composite_icc_hack, composite_survival
             if args.icc_hack:                
