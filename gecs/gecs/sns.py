@@ -11,7 +11,18 @@ from survival.gedi import _preprocess_gedi_rfp
 from improc.experiment.types import Vertex, Mosaic, Exposure, Channel, Timepoint
 from improc.experiment import loader
 from improc.processes import BaSiC, Stitch, Pipeline, Task
+from improc.processes.stack import crop
 
+def format_path(scratch_path: Path, legacy: bool, vertex: Vertex, mosaic: Mosaic | None, channel: Channel):
+    if legacy:
+        base = scratch_path / "stacked" / channel
+    else:
+        base= scratch_path / "stacked"
+    
+    if mosaic is None:
+        return base / f"{vertex.label}-{channel}.tif"
+    else:
+        return base / f"{vertex.label}-{mosaic.index[0]}_{mosaic.index[1]}-{channel}.tif"
 
 def stitch_n_stack(experiment_path: Path, scratch_path: Path, legacy: bool, out_range: str = "uint16", stitch: bool = True):
 
@@ -24,14 +35,20 @@ def stitch_n_stack(experiment_path: Path, scratch_path: Path, legacy: bool, out_
 
     # now stack based on GFP registration
     locs = defaultdict(list)
-    for image in experiment.datasets["stitched"].images:
-        vertex = image.get_tag(Vertex)
-        locs[vertex].append(image)
+    if stitch:
+        for image in experiment.datasets["stitched"].images:
+            vertex = image.get_tag(Vertex)
+            locs[(vertex, None)].append(image)
+    else:
+        for image in experiment.datasets["basic_corrected"].images:
+            vertex = image.get_tag(Vertex)
+            mosaic = image.get_tag(Mosaic)
+            locs[(vertex, mosaic)].append(image)
 
     def sorting_key(image):
         return image.get_tag(Timepoint).index
 
-    for vertex, images in locs.items():
+    for (vertex, mosaic), images in locs.items():
         chans = defaultdict(list)
         for image in images:
             chan = image.get_tag(Exposure).channel
@@ -40,29 +57,20 @@ def stitch_n_stack(experiment_path: Path, scratch_path: Path, legacy: bool, out_
         gfp_imgs = sorted(chans[Channel.GFP], key=sorting_key)
         gfp = np.array([im.data for im in gfp_imgs])
         gfp_norm = _preprocess_gedi_rfp(gfp)
-        gfp_filtered = np.array([filters.butterworth(frame, high_pass=False, cutoff_frequency_ratio=0.1) for frame in gfp_norm])
+        gfp_filtered = np.array([filters.butterworth(frame, high_pass=False, cutoff_frequency_ratio=0.2) for frame in gfp_norm])
 
         sr = StackReg(StackReg.RIGID_BODY)
         tmats = sr.register_stack(gfp_filtered)
-        gfp_registered = sr.transform_stack(gfp_filtered, tmats=tmats)
-        gfp_rescaled = exposure.rescale_intensity(gfp_registered, out_range=out_range)
 
-        rfp_imgs = sorted(chans[Channel.RFP], key=sorting_key)
-        rfp = np.array([im.data for im in rfp_imgs])
-        rfp_norm = _preprocess_gedi_rfp(np.array(rfp))
-        rfp_filtered = np.array([filters.butterworth(frame, high_pass=False, cutoff_frequency_ratio=0.1) for frame in rfp_norm])
-        rfp_registered = sr.transform_stack(rfp_filtered, tmats=tmats)
-        rfp_rescaled = exposure.rescale_intensity(rfp_registered, out_range=out_range)
+        for chan, collection in chans.items():
 
-        if legacy:
-            outpath_gfp = scratch_path / "stacked" / "GFP" / f"{vertex.label}.tif"
-            outpath_rfp = scratch_path / "stacked" / "RFP" / f"{vertex.label}.tif"
-        else:
-            outpath_gfp = scratch_path / "stacked" / f"{vertex.label}.tif"
-            outpath_rfp = scratch_path / "stacked" / f"{vertex.label}.tif"
+            data_imgs = sorted(collection, key=sorting_key)
+            data = np.array([im.data for im in data_imgs])
+            data_norm = _preprocess_gedi_rfp(data)
+            data_registered = sr.transform_stack(data_norm, tmats=tmats)
+            data_cropped = crop(data_registered)
+            data_rescaled = exposure.rescale_intensity(data_cropped, out_range=out_range)
 
-        os.makedirs(outpath_gfp.parent, exist_ok=True)
-        os.makedirs(outpath_rfp.parent, exist_ok=True)
-
-        tifffile.imwrite(outpath_gfp, gfp_rescaled)
-        tifffile.imwrite(outpath_rfp, rfp_rescaled)
+            outpath = format_path(scratch_path, legacy, vertex, mosaic, chan)
+            os.makedirs(outpath.parent, exist_ok=True)
+            tifffile.imwrite(outpath, data_rescaled)

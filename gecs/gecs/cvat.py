@@ -1,21 +1,18 @@
 from pathlib import Path
 import tempfile 
 
+from skimage import exposure
+from cvat_sdk import make_client, Client
+from cvat_sdk.models import TaskWriteRequest
 from cvat_sdk.api_client import Configuration, ApiClient, exceptions
 from cvat_sdk.api_client.models import *
 import tifffile
 
 from . settings import settings
 
-cvat_config = Configuration(
-    host=settings.cvat_url,
-    username=settings.cvat_username,
-    password=settings.cvat_password
-)
 
-
-def get_project_id(client: ApiClient, project_name: str) -> int | None:
-    (data, response) = client.projects_api.list(
+def get_project_id(client: Client, project_name: str) -> int | None:
+    (data, response) = client.api_client.projects_api.list(
         search=project_name
     )
     if data is None or len(data.results) == 0:
@@ -23,54 +20,48 @@ def get_project_id(client: ApiClient, project_name: str) -> int | None:
     else:
         return data.results[0].id
 
-def convert_to_cvat_appropriate_format(tmp_dir: Path, images: list[Path], img_dims="TYX") -> dict[str,list[Path]]:
-    if img_dims == "TYX":
+def deploy_ts(project_name: str, stacks: list[Path]):
 
-        # split into frames
-        collections = {}
-        for path in images:
-            label = path.name.replace(".tif", "")
-            img = tifffile.imread(path)
-            collection = []
-            for idx, frame in enumerate(img):
-                outpath = tmp_dir / f"{label}_{idx}.tif", frame
-                tifffile.imsave(outpath, frame)
-                collection.append(outpath)
-            collections[label] = collection
-        return collections
-
-    elif img_dims == "CYX":
-
-        # composite into false-color image
-
-        return {}
-
-    elif img_dims == "CTYX":
-        # composite and split
-        return {}
-    else:
-        raise ValueError(f"Invalid or unhandled image dimensions: {img_dims}")
-
-def create_task(client: ApiClient, project_id: int, task_name: str, image_seq: list[Path]):
-    task_write_request = TaskWriteRequest(
-        name=task_name,
-    )
-
-    # try:
-    #     (data, response) = client.tasks_api.create(
-    #     )
-    # except exceptions.ApiException as e:
-    #     pass
-
-def deploy(project_name: str, img_dims: str, images: list[Path]):
-    with tempfile.TemporaryDirectory() as tmpdir, ApiClient(cvat_config) as client:
+    with make_client(
+            host=settings.cvat_url, 
+            credentials=(
+                settings.cvat_username, 
+                settings.cvat_password
+            )
+        ) as client, tempfile.TemporaryDirectory() as tmpdir:
+        print(f"splitting frames in {tmpdir}")
 
         project_id = get_project_id(client, project_name)
         if project_id is None:
             print(f"Project {project_name} does not exist; create it in the webapp first")
             return
                 
-        #converted = convert_to_cvat_format(img_dims, images)
+        # split into frames
+        collections = {}
+        for path in stacks:
+            label = path.name.replace(".tif", "")
+            img = tifffile.imread(path)
+            collection = []
+            for idx, frame in enumerate(img):
+                outpath = Path(tmpdir) / f"{label}_{idx}.tif"
+                rescaled = exposure.rescale_intensity(frame, out_range="uint8")
+                tifffile.imsave(outpath, rescaled)
+                collection.append(outpath)
+            collections[label] = collection
 
-        # for task_name, image_seq in converted.items():
-        #     create_task(client, project_id, task_name, image_seq)
+        for label, collection in collections.items():
+            task_spec = TaskWriteRequest(
+                name=label,
+                project_id=project_id,
+            )
+            try:
+                client.tasks.create_from_data(
+                    spec=task_spec,
+                    resources=collection
+                )
+            except Exception as e:
+                print(f"failed to create task for {label};")
+                print(e)
+                return
+            
+            print(f"created task for {label}")
