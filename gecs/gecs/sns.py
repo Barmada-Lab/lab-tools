@@ -66,8 +66,7 @@ def stitch_n_stack(experiment_path: Path, scratch_path: Path, legacy: bool, out_
 
             data_imgs = sorted(collection, key=sorting_key)
             data = np.array([im.data for im in data_imgs])
-            data_norm = _preprocess_gedi_rfp(data)
-            data_registered = sr.transform_stack(data_norm, tmats=tmats)
+            data_registered = sr.transform_stack(data, tmats=tmats)
             data_cropped = crop(data_registered)
             data_rescaled = exposure.rescale_intensity(data_cropped, out_range=out_range)
 
