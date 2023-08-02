@@ -18,7 +18,7 @@ from improc.experiment.types import Channel, Exposure, Timepoint, Vertex, Datase
 from improc.processes import Task, Pipeline, BaSiC, Stitch, Stack, TaskError, Filter
 from improc.experiment import Experiment, loader
 from improc.processes.stack import composite_stack, crop
-from skimage import filters, measure, morphology
+from skimage import filters, measure, morphology # type: ignore
 
 from . import gedi
 from . import segmentation
@@ -392,7 +392,7 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
             ])
             tmats.append(tmat)
 
-        tmats = np.median(tmats, axis=0)
+        tmats = np.median(np.array(tmats), axis=0)
     else:
         with open(experiment.experiment_dir / "results" / "transforms.npy", "rb") as f:
             tmats = np.load(f, allow_pickle=True)
