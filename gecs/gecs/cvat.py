@@ -20,6 +20,37 @@ def get_project_id(client: Client, project_name: str) -> int | None:
     else:
         return data.results[0].id
 
+def deploy_frames(project_name: str, paths: list[Path]):
+
+    with make_client(
+        host=settings.cvat_url,
+        credentials=(
+            settings.cvat_username,
+            settings.cvat_password
+        )
+    ) as client:
+        
+        project_id = get_project_id(client, project_name)
+        if project_id is None:
+            print(f"Project {project_name} does not exist; create it in the webapp first")
+
+        for path in paths:
+            label = path.name.replace(".tif", "")
+            task_spec = TaskWriteRequest(
+                name=label,
+                project_id=project_id
+            )
+            try:
+                client.tasks.create_from_data(
+                    spec=task_spec,
+                    resources=[path]
+                )
+            except Exception as e:
+                print(f"failed to create task for {label};")
+                print(e)
+                return
+
+
 def deploy_ts(project_name: str, stacks: list[Path]):
 
     with make_client(
