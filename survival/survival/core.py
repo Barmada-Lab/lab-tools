@@ -19,6 +19,7 @@ from improc.processes import Task, Pipeline, BaSiC, Stitch, Stack, TaskError, Fi
 from improc.experiment import Experiment, loader
 from improc.processes.stack import composite_stack, crop
 from skimage import filters, measure, morphology # type: ignore
+from skimage.transform import resize # type: ignore
 
 from . import gedi
 from . import segmentation
@@ -152,22 +153,27 @@ def event_survival_gfp(stacked: np.ndarray, stacks_output: Path | None = None) -
     the law of large numbers, but be cognizant of its presence.
 
     """
-    segmented = np.array([segmentation.segment_soma_iN_gfp(frame, 6, .2) for frame in stacked])
+    resized = np.array([resize(frame, (512, 512)) for frame in stacked])
+    segmented = np.array([segmentation.segment_soma_iN_gfp(frame, 6, .2) for frame in resized])
     labeled = segmentation.label_segmented_stack(segmented)
 
     if stacks_output is not None:
         tifffile.imwrite(stacks_output, segmented)
 
+    # NOTE: it may be more accurate if we average cell size across the entire experiment.
     counts = []
     for total_area, lone_cells in zip(segmented, labeled):
         area = np.count_nonzero(total_area)
         lone_cell_sizes = [props.area for props in measure.regionprops(lone_cells)]
+        # NOTE: median may be a better metric
         avg_cell_size = sum(lone_cell_sizes) / len(lone_cell_sizes) if len(lone_cell_sizes) > 0 else 0
 
         if avg_cell_size > 0:
             counts.append(int(area / avg_cell_size))
         else:
             counts.append(0)
+
+    # NOTE: we should aggregate these psuedo counts and see how they trend compared to lone cell counts and total fluorescence
 
     n_t0 = counts[0]
     tf = len(counts) - 1
@@ -252,14 +258,21 @@ def make_stacks_gfp_method(experiment: Experiment) -> Iterable[tuple[str, np.nda
 
     for well in wells:
         chans = defaultdict(list)
+        tps = set()
         for tp in range(last_tp + 1):
             ordered = sorted(groups[(well, tp)], key=lambda im: im.get_tag(Exposure).channel)
+            if len(ordered) > 0:
+                tps.add(tp)
             for img in ordered:
                 chan = img.get_tag(Exposure).channel
                 chans[chan].append(img)
 
         gfp = chans[Channel.GFP]
         rfp = chans[Channel.RFP]
+
+        if len(gfp) != len(tps) or len(rfp) != len(tps):
+            print(f"skipping {well} due to missing images")
+            continue
 
         gfp_raw = np.array([im.data for im in gfp])
         rfp_raw = np.array([im.data for im in rfp])
@@ -310,12 +323,14 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
 
     wells: set[str] = set()
     last_tp = 0
+    tps: set[int] = set()
     groups = defaultdict(list)
     for im in corrected.images:
         tp = im.get_tag(Timepoint).index # type:ignore
         mosaic = "_".join(map(str,im.get_tag(Mosaic).index)) # type:ignore
         vertex = f"{im.vertex}_{mosaic}" # type: ignore
         groups[(vertex, tp)].append(im)
+        tps.add(tp)
         if tp > last_tp:
             last_tp = tp
         wells.add(vertex)
@@ -324,16 +339,14 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
         transformation_stacks = []
         for well in wells:
             chans = defaultdict(list)
-            sentinel = True
             for tp in range(last_tp + 1):
                 ordered = sorted(groups[(well, tp)], key=lambda im: im.get_tag(Exposure).channel)
-                if len(ordered) == 0:
-                    sentinel = False
                 for img in ordered:
                     chan = img.get_tag(Exposure).channel
                     chans[chan].append(img)
 
-            if sentinel == False:
+            if len(chans[Channel.GFP]) != len(tps) or len(chans[Channel.RFP]) != len(tps):
+                print(f"skipping {well} due to missing images")
                 # avoid jagged arrays if there are missing images
                 continue
 
@@ -395,7 +408,7 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
             ])
             tmats.append(tmat)
 
-        tmats = np.median(np.array(tmats), axis=0)
+        tmats = np.array(tmats)
 
         os.makedirs(experiment.experiment_dir / "results", exist_ok=True)
         with open(experiment.experiment_dir / "results" / "transforms.npy", "wb") as f:
