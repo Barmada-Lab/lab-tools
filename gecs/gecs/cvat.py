@@ -22,19 +22,30 @@ def get_project_id(client: Client, project_name: str) -> int | None:
 
 def deploy_frames(project_name: str, paths: list[Path]):
 
+    test = tifffile.imread(paths[0])
+    convert = False
+    if test.dtype != "uint8":
+        convert = True
+    
     with make_client(
         host=settings.cvat_url,
         credentials=(
             settings.cvat_username,
             settings.cvat_password
         )
-    ) as client:
+    ) as client, tempfile.TemporaryDirectory() as tmpdir:
         
         project_id = get_project_id(client, project_name)
         if project_id is None:
             print(f"Project {project_name} does not exist; create it in the webapp first")
 
         for path in paths:
+            if convert:
+                img = tifffile.imread(path)
+                rescaled = exposure.rescale_intensity(img, out_range="uint8")
+                outpath = Path(tmpdir) / path.name
+                tifffile.imsave(outpath, rescaled)
+                path = outpath
             label = path.name.replace(".tif", "")
             task_spec = TaskWriteRequest(
                 name=label,
