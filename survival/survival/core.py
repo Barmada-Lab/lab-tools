@@ -324,11 +324,18 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
         transformation_stacks = []
         for well in wells:
             chans = defaultdict(list)
+            sentinel = True
             for tp in range(last_tp + 1):
                 ordered = sorted(groups[(well, tp)], key=lambda im: im.get_tag(Exposure).channel)
+                if len(ordered) == 0:
+                    sentinel = False
                 for img in ordered:
                     chan = img.get_tag(Exposure).channel
                     chans[chan].append(img)
+
+            if sentinel == False:
+                # avoid jagged arrays if there are missing images
+                continue
 
             gfp = chans[Channel.GFP]
 

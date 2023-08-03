@@ -140,7 +140,11 @@ class ImageFile(Image):
 
     @property
     def data(self) -> np.ndarray:
-        return tifffile.imread(self.path)
+        try:
+            return tifffile.imread(self.path)
+        except Exception as e:
+            print(f"Failed to read image at {self.path}")
+            raise e
 
 @dataclass
 class Dataset(abc.ABC):
