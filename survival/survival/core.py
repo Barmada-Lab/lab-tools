@@ -344,10 +344,6 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
 
         transformation_stacks = np.array(transformation_stacks)
 
-        os.makedirs(experiment.experiment_dir / "results", exist_ok=True)
-        with open(experiment.experiment_dir / "results" / "transforms.npy", "wb") as f:
-            np.save(f, transformation_stacks)
-
         def centroid(pts):
             length = pts.shape[0]
             sum_x = np.sum(pts[:,0])
@@ -393,6 +389,10 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
             tmats.append(tmat)
 
         tmats = np.median(np.array(tmats), axis=0)
+
+        os.makedirs(experiment.experiment_dir / "results", exist_ok=True)
+        with open(experiment.experiment_dir / "results" / "transforms.npy", "wb") as f:
+            np.save(f, tmats)
     else:
         with open(experiment.experiment_dir / "results" / "transforms.npy", "rb") as f:
             tmats = np.load(f, allow_pickle=True)

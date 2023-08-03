@@ -41,7 +41,7 @@ class BaSiC(Task):
         output = experiment.new_dataset(self.output_label, overwrite=self.overwrite)
         groups = list(agg.groupby(dataset.images, self.group_pred).values())
 
-        with Pool() as p:
+        with Pool(1) as p:
             for group, corrected in tqdm(p.imap(self.correct, groups), total=len(groups), desc=self.__class__.__name__):
                 for orig, corrected_slice in zip(group, corrected):
                     tags = orig.tags
