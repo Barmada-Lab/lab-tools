@@ -15,7 +15,7 @@ class BadImageCantCrop(TaskError):
 class Stack(ManyToOneTask):
 
     def __init__(self, registration_transform: Callable[[np.ndarray], np.ndarray] = sobel,  crop_output: bool = True, force_bad_reg: bool = False) -> None: # type: ignore
-        super().__init__("stacked")
+        super().__init__("stacked", parallelism=1)
         self.crop_output = crop_output
         self.registration_transform = registration_transform
         self.force_bad_reg = force_bad_reg
