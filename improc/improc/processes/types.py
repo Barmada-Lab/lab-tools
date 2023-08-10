@@ -52,9 +52,10 @@ class OneToOneTask(Task):
 
 class ManyToOneTask(Task):
 
-    def __init__(self, output_label: str, overwrite=False) -> None:
+    def __init__(self, output_label: str, parallelism: int=1, overwrite=False) -> None:
         super().__init__(output_label)
         self.overwrite = overwrite
+        self.parallelism = parallelism
 
     @abc.abstractmethod
     def group_pred(self, image: Image) -> Hashable:
@@ -67,7 +68,7 @@ class ManyToOneTask(Task):
     def process(self, dataset: Dataset, experiment: Experiment) -> Dataset:
         output_dataset = experiment.new_dataset(self.output_label, overwrite=self.overwrite)
         groups = list(agg.groupby(dataset.images, self.group_pred).values())
-        with Pool(4) as p:
+        with Pool(self.parallelism) as p:
             for result in tqdm(p.imap(self.transform, groups), total=len(groups), desc=self.__class__.__name__):
                 output_dataset.write_image2(result)
         return output_dataset
