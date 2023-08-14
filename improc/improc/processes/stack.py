@@ -14,11 +14,12 @@ class BadImageCantCrop(TaskError):
 
 class Stack(ManyToOneTask):
 
-    def __init__(self, registration_transform: Callable[[np.ndarray], np.ndarray] = sobel,  crop_output: bool = True, force_bad_reg: bool = False) -> None: # type: ignore
+    def __init__(self, registration_transform: Callable[[np.ndarray], np.ndarray] = sobel,  register: bool = True, crop_output: bool = True, force_bad_reg: bool = False) -> None: # type: ignore
         super().__init__("stacked", parallelism=1)
         self.crop_output = crop_output
         self.registration_transform = registration_transform
         self.force_bad_reg = force_bad_reg
+        self.register = register
 
     def group_pred(self, image: Image) -> Hashable:
         return (image.get_tag(Vertex), image.get_tag(Exposure))
@@ -27,6 +28,9 @@ class Stack(ManyToOneTask):
         ordered = np.array([img.data for img in sorted(images, key=lambda x: x.get_tag(Timepoint).index)]) # type: ignore
         tags = list(filter(lambda x: not isinstance(x, Timepoint), images[0].tags))
         axes = [Axis.T] + images[0].axes
+        if not self.register:
+            return MemoryImage(ordered, axes, tags)
+
         sr = StackReg(StackReg.RIGID_BODY)
         reg_stack = np.array([self.registration_transform(img) for img in ordered])
 
