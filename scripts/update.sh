@@ -13,8 +13,8 @@ setup() {
     poetry install
     cd $REPO_BASE/notebooks
     poetry install
-    module load R
-    poetry run R -e "install.packages('IRkernel', repos='http://cran.us.r-project.org'); IRkernel::installspec()"
+    #module load R
+    #poetry run R -e "install.packages('IRkernel', repos='http://cran.us.r-project.org'); IRkernel::installspec()"
     poetry run ipython kernel install --name barma --user
     if [ ! -d  $HOME/.jupyter ]; then
         mkdir $HOME/.jupyter
