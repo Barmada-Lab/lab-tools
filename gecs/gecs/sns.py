@@ -1,15 +1,15 @@
 from pathlib import Path
 from collections import defaultdict
 
-from skimage import exposure, filters
+from skimage import exposure, filters # type: ignore
 from pystackreg import StackReg
 import tifffile
 import numpy as np
 import os
 
 from survival.gedi import _preprocess_gedi_rfp
-from improc.experiment.types import Vertex, Mosaic, Exposure, Channel, Timepoint
-from improc.experiment import loader
+from improc.experiment.types import Vertex, Mosaic, Exposure, Channel, Timepoint, Image
+from improc.experiment import loader, Experiment
 from improc.processes import BaSiC, Stitch, Pipeline, Task
 from improc.processes.stack import crop
 
@@ -24,14 +24,13 @@ def format_path(scratch_path: Path, legacy: bool, vertex: Vertex, mosaic: Mosaic
     else:
         return base / f"{vertex.label}-{mosaic.index[0]}_{mosaic.index[1]}-{channel}.tif"
 
-def stitch_n_stack(experiment_path: Path, scratch_path: Path, legacy: bool, out_range: str = "uint16", stitch: bool = True):
+def stitch_n_stack(experiment: Experiment, collection: str, legacy: bool = False, out_range: str = "uint16", stitch: bool = True):
 
-    experiment = loader.load_experiment(experiment_path, scratch_path)
     steps: list[Task] = [ BaSiC() ]
     if stitch:
         steps.append(Stitch())
     initial_pipeline = Pipeline(*steps)
-    initial_pipeline.run(experiment, "raw_imgs")
+    initial_pipeline.run(experiment, collection)
 
     # now stack based on GFP registration
     locs = defaultdict(list)
@@ -49,7 +48,7 @@ def stitch_n_stack(experiment_path: Path, scratch_path: Path, legacy: bool, out_
         return image.get_tag(Timepoint).index
 
     for (vertex, mosaic), images in locs.items():
-        chans = defaultdict(list)
+        chans: dict[Channel, list[Image]] = defaultdict(list)
         for image in images:
             chan = image.get_tag(Exposure).channel
             chans[chan].append(image)
@@ -62,14 +61,24 @@ def stitch_n_stack(experiment_path: Path, scratch_path: Path, legacy: bool, out_
         sr = StackReg(StackReg.RIGID_BODY)
         tmats = sr.register_stack(gfp_filtered)
 
-        for chan, collection in chans.items():
+        for chan, collection in chans.items(): # type: ignore
 
             data_imgs = sorted(collection, key=sorting_key)
-            data = np.array([im.data for im in data_imgs])
+            data = np.array([im.data for im in data_imgs]) # type: ignore
             data_registered = sr.transform_stack(data, tmats=tmats)
             data_cropped = crop(data_registered)
             data_rescaled = exposure.rescale_intensity(data_cropped, out_range=out_range)
 
-            outpath = format_path(scratch_path, legacy, vertex, mosaic, chan)
+            outpath = format_path(experiment.scratch_dir, legacy, vertex, mosaic, chan)
             os.makedirs(outpath.parent, exist_ok=True)
             tifffile.imwrite(outpath, data_rescaled)
+
+def cli_entry(args):
+    scratch_dir = args.scratch_dir if args.scratch_dir is not None else args.experiment_dir / "processed_imgs"
+    experiment = loader.load_experiment(args.experiment_dir, scratch_dir)
+    stitch_n_stack(
+        experiment, 
+        args.collection,
+        args.legacy, 
+        args.out_range, 
+        not args.no_stitch)
