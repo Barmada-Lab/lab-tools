@@ -107,3 +107,9 @@ def deploy_ts(project_name: str, stacks: list[Path]):
                 return
             
             print(f"created task for {label}")
+
+def cli_entry(args):
+    if args.ts:
+        deploy_ts(args.project_name, args.images)
+    else:
+        deploy_frames(args.project_name, args.images)

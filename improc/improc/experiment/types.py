@@ -93,6 +93,12 @@ class Image(abc.ABC):
                 return tag
         return None
 
+    def get_tag_str(self, tag_name: str) -> Tag | None:
+        for tag in self.tags:
+            if tag.__class__.__name__.lower() == tag_name.lower():
+                return tag
+        return None
+
     @property
     def vertex(self) -> str:
         vertex_tag = self.get_tag(Vertex)

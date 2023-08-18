@@ -1,15 +1,14 @@
 from typing import Any
 
 from pathlib import Path
-from skimage import filters
 from collections import defaultdict
 import tifffile
-from skimage import exposure
+from skimage import exposure, filters # type: ignore
 from pystackreg import StackReg
 import numpy as np
 
 from survival.gedi import _preprocess_gedi_rfp
-from improc.experiment import loader
+from improc.experiment import loader, Experiment
 from improc.experiment.types import Image, Axis, MemoryImage, Timepoint, Vertex, Channel, Exposure, Mosaic
 from improc.processes import OneToOneTask, Pipeline
 from improc.processes import BaSiC
@@ -41,27 +40,24 @@ class ConvertHack(OneToOneTask):
             tags
         )
 
-def composite_icc_hack(experiment_path: Path, scratch_path: Path):
+def composite_icc_hack(experiment: Experiment):
     """ 
     Composites images acquired using the imaging script "hack," 
     typically for the purposes of ICC imaging.
     """
 
-    experiment = loader.load_experiment(experiment_path, scratch_path)
     pipeline = Pipeline(
         ConvertHack(),
-        Rescale((0.5, 99.5)),
         Composite(out_depth="uint8")
     )
     pipeline.run(experiment, "raw_imgs")
 
-def composite_survival(experiment_path, scratch_path: Path, ignore_channels: list[Channel] = []):
+def composite_survival(experiment: Experiment, ignore_channels: list[Channel] = []):
     """ 
     Composites images acquired using the imaging script "survival," 
     typically for the purposes of survival imaging.
     """
 
-    experiment = loader.load_experiment(experiment_path, scratch_path)
     if not "basic_corrected" in experiment.datasets:
         pipeline = Pipeline(
             BaSiC()
@@ -74,8 +70,8 @@ def composite_survival(experiment_path, scratch_path: Path, ignore_channels: lis
         mosaic = image.get_tag(Mosaic)
         timeseries[(vertex, mosaic)].append(image)
 
-    if not (scratch_path / "composited").exists():
-        (scratch_path / "composited").mkdir()
+    if not (experiment.scratch_dir / "composited").exists():
+        (experiment.scratch_dir / "composited").mkdir()
 
     def ordering_key(img):
         return img.get_tag(Timepoint).index
@@ -111,8 +107,16 @@ def composite_survival(experiment_path, scratch_path: Path, ignore_channels: lis
         composite = Composite(out_depth="uint32")
         for chan, frames in reg_timeseries.items():
             colored = np.array([composite.color_img(frame, chan) for frame in frames])
-            sum_img += colored
+            sum_img += colored # type: ignore
         
         sum_img = exposure.rescale_intensity(sum_img, out_range="uint8")
         mosaic_label = "_".join(map(str, mosaic.index))
-        tifffile.imwrite(scratch_path / "composited" / f"{vertex.label}-{mosaic_label}.tif", sum_img)
+        tifffile.imwrite(experiment.scratch_dir / "composited" / f"{vertex.label}-{mosaic_label}.tif", sum_img)
+
+def cli_entry(args):
+    scratch_dir = args.scratch_dir if args.scratch_dir is not None else args.experiment_dir / "processed_imgs"
+    experiment = loader.load_experiment(args.experiment_dir, scratch_dir)
+    if args.icc_hack:
+        composite_icc_hack(experiment)
+    else:
+        composite_survival(experiment, args.ignore)
