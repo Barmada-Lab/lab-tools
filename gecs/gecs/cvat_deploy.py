@@ -1,14 +1,14 @@
 from pathlib import Path
 import tempfile 
 
-from skimage import exposure
+from skimage import exposure # type: ignore
 from cvat_sdk import make_client, Client
 from cvat_sdk.models import TaskWriteRequest
 from cvat_sdk.api_client import Configuration, ApiClient, exceptions
 from cvat_sdk.api_client.models import *
 import tifffile
 
-from . settings import settings
+from .settings import settings
 
 
 def get_project_id(client: Client, project_name: str) -> int | None:
@@ -109,6 +109,8 @@ def deploy_ts(project_name: str, stacks: list[Path]):
             print(f"created task for {label}")
 
 def cli_entry(args):
+    if len(args.images) == 1 and args.images[0].is_dir():
+        args.images = list(args.images[0].glob("*"))
     if args.ts:
         deploy_ts(args.project_name, args.images)
     else:
