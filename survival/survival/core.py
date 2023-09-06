@@ -400,7 +400,6 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
             else:
                 theta = np.sum(theta_threshd) / theta_threshd.shape[0]
 
-            print(x, y, theta)
             tmat = np.array([
                 (np.cos(theta), -np.sin(theta), x),
                 (np.sin(theta),  np.cos(theta), y),
@@ -427,6 +426,10 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
 
         gfp = chans[Channel.GFP]
         rfp = chans[Channel.RFP]
+
+        if len(gfp) != len(tps) or len(rfp) != len(tps):
+            print(f"skipping {well} due to missing images")
+            continue
 
         gfp_raw = np.array([im.data for im in gfp])
         rfp_raw = np.array([im.data for im in rfp])
