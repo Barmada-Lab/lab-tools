@@ -8,7 +8,7 @@ def parse_args():
     parser.add_argument("experiment_path", type=Path)
     parser.add_argument("scratch_path", type=Path)
     parser.add_argument("--single-cell", help="[NOT YET FUNCTIONAL] use single cell tracking", default=False, action='store_true')
-    parser.add_argument("--no-gedi", help="don't use rfp gedi", default=True, action='store_false')
+    parser.add_argument("--no-gedi", help="don't use rfp gedi", default=False, action='store_true')
     parser.add_argument("--save-masks", help="save labelled stacks", default=False, action='store_true')
     parser.add_argument("--avg-reg", help="average registration across plate", default=False, action='store_true')
     parser.add_argument("--cpus", help="num cpus", type=int, default=1, action="store")

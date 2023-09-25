@@ -23,10 +23,10 @@ from skimage.transform import resize # type: ignore
 
 from . import gedi
 from . import segmentation
+from . import audit
 
 def filter_for_rfp(im: Image):
     return (im.get_tag(Exposure)).channel == Channel.RFP # type: ignore
-
 
 @dataclass
 class SurvivalResult:
@@ -154,26 +154,15 @@ def event_survival_gfp(stacked: np.ndarray, stacks_output: Path | None = None) -
 
     """
     resized = np.array([resize(frame, (512, 512)) for frame in stacked])
-    segmented = np.array([segmentation.segment_soma_iN_gfp(frame, 6, .2) for frame in resized])
-    labeled = segmentation.label_segmented_stack(segmented)
+    segmented = segmentation.segment_stack(resized)
 
     if stacks_output is not None:
-        tifffile.imwrite(stacks_output, segmented)
+        audit.write_audited_segmentation_gif(resized, segmented, stacks_output)
 
-    # NOTE: it may be more accurate if we average cell size across the entire experiment.
     counts = []
-    for total_area, lone_cells in zip(segmented, labeled):
-        area = np.count_nonzero(total_area)
-        lone_cell_sizes = [props.area for props in measure.regionprops(lone_cells)]
-        # NOTE: median may be a better metric
-        avg_cell_size = sum(lone_cell_sizes) / len(lone_cell_sizes) if len(lone_cell_sizes) > 0 else 0
-
-        if avg_cell_size > 0:
-            counts.append(int(area / avg_cell_size))
-        else:
-            counts.append(0)
-
-    # NOTE: we should aggregate these psuedo counts and see how they trend compared to lone cell counts and total fluorescence
+    for frame in segmented:
+        labeled = measure.label(frame)
+        counts.append(labeled.max())
 
     n_t0 = counts[0]
     tf = len(counts) - 1
@@ -268,23 +257,21 @@ def make_stacks_gfp_method(experiment: Experiment) -> Iterable[tuple[str, np.nda
                 chans[chan].append(img)
 
         gfp = chans[Channel.GFP]
-        rfp = chans[Channel.RFP]
 
-        if len(gfp) != len(tps) or len(rfp) != len(tps):
+        if len(gfp) != len(tps):
             print(f"skipping {well} due to missing images")
             continue
 
         gfp_raw = np.array([im.data for im in gfp])
-        rfp_raw = np.array([im.data for im in rfp])
-
-        gfp_norm = gedi._preprocess_gedi_rfp(gfp_raw)
-        sobeld = np.array([filters.sobel(frame) for frame in gfp_norm])
+        resized = np.array([resize(frame, (512, 512)) for frame in gfp_raw])
+        filtered = np.array([segmentation.logmax_filter(frame) for frame in resized])
 
         sr = StackReg(StackReg.RIGID_BODY)
-        tmats = sr.register_stack(sobeld)
-        transformed = composite_stack(np.array((gfp_raw, rfp_raw)), tmats)
+        tmats = sr.register_stack(filtered)
+        transformed = sr.transform_stack(gfp_raw, tmats=tmats)
+        cropped = crop(transformed)
 
-        yield well, transformed
+        yield well, cropped
 
 def make_stacks_rfp_method(experiment: Experiment) -> Iterable[tuple[str, np.ndarray | None]]:
     corrected = experiment.datasets["basic_corrected"]
@@ -345,7 +332,7 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
                     chan = img.get_tag(Exposure).channel
                     chans[chan].append(img)
 
-            if len(chans[Channel.GFP]) != len(tps) or len(chans[Channel.RFP]) != len(tps):
+            if len(chans[Channel.GFP]) != len(tps):
                 print(f"skipping {well} due to missing images")
                 # avoid jagged arrays if there are missing images
                 continue
@@ -353,13 +340,11 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
             gfp = chans[Channel.GFP]
 
             gfp_raw = np.array([im.data for im in gfp])
-
-            gfp_norm = gedi._preprocess_gedi_rfp(gfp_raw)
-            filtered = np.array([filters.butterworth(frame, high_pass=False, cutoff_frequency_ratio=0.1) for frame in gfp_norm])
-            sobeld = np.array([filters.sobel(frame) for frame in filtered])
+            resized = np.array([resize(frame, (512, 512)) for frame in gfp_raw])
+            filtered = np.array([segmentation.logmax_filter(frame) for frame in resized])
 
             sr = StackReg(StackReg.RIGID_BODY)
-            transforms = sr.register_stack(sobeld)
+            transforms = sr.register_stack(filtered)
             transformation_stacks.append(transforms)
 
         transformation_stacks = np.array(transformation_stacks)
@@ -425,17 +410,17 @@ def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarra
                 chans[chan].append(img)
 
         gfp = chans[Channel.GFP]
-        rfp = chans[Channel.RFP]
 
-        if len(gfp) != len(tps) or len(rfp) != len(tps):
+        if len(gfp) != len(tps):
             print(f"skipping {well} due to missing images")
             continue
 
         gfp_raw = np.array([im.data for im in gfp])
-        rfp_raw = np.array([im.data for im in rfp])
 
-        transformed = composite_stack(np.array((gfp_raw, rfp_raw)), tmats)
-        yield well, transformed
+        sr = StackReg(StackReg.RIGID_BODY)
+        transformed = sr.transform_stack(gfp_raw, tmats=tmats)
+        cropped = crop(transformed)
+        yield well, cropped
 
 
 def analysis(args):
@@ -445,11 +430,11 @@ def analysis(args):
     if stacked is None:
         return vertex, None, None
 
-    mask_output = None if mask_output is None else mask_output / stack_loc.name
+    mask_output = None if mask_output is None else mask_output / f"{vertex}.gif"
     if use_gedi:
         df = event_survival_gedi_gfp(stacked, mask_output) # type: ignore
     else:
-        df = event_survival_gfp(stacked[0], mask_output) # type: ignore
+        df = event_survival_gfp(stacked, mask_output) # type: ignore
     return vertex, stacked, df
 
 def process(exp_path: Path, scratch_path: Path, save_masks: bool, single_cell: bool, use_gedi: bool, avg_reg: bool, cpus: int):

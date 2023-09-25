@@ -4,24 +4,45 @@ from skimage import morphology
 import numpy as np
 from . import gedi
 
-def segment_soma_iN_gfp(normalized: np.ndarray, min_dia: int = 8, cutoff_freq: float=0.05):
+def logmax_filter(
+        frame: np.ndarray, 
+        min_sigma: float = 3, 
+        max_sigma: float = 7, 
+        num_sigma: int = 10):
+    """
+    Applies a multiscale Laplacian of Gaussian filter stack to an image and returns 
+    the maximum response
+    """
+    assert frame.ndim == 2, f"frame must be 2D; shape is {frame.shape}"
+    padding = int(max_sigma)
+    padded = np.pad(frame, padding, mode='edge')
+    sigmas = np.linspace(min_sigma, max_sigma, num_sigma)
+    filter_stack = np.array([filters.laplace(filters.gaussian(padded, sigma=sigma)) for sigma in sigmas])
+    unpadded = filter_stack[:, padding:-padding, padding:-padding]
+    return unpadded.max(axis=0)
+
+def segment_soma_iN_gfp(
+        frame: np.ndarray, 
+        min_dia: int = 6, 
+        max_dia: int = 15,
+        min_area: int = 57,
+        max_area: int = 144):
     """
     Segments soma in images typical of iNeurons in GFP
 
     image - flatfielded, grayscale image
     """
-    # filtered = filters.butterworth(image, cutoff_frequency_ratio=cutoff_freq, high_pass=False) # type: ignore
 
-    # l, h = np.percentile(filtered, (0.5,99.5)) 
-    # rescaled = exposure.rescale_intensity(filtered, in_range=(l,h))  # type: ignore
-    # thresh = filters.threshold_otsu(rescaled) # type: ignore
-    # crude_mask = rescaled > thresh
+    lap = logmax_filter(frame, min_dia / 2, max_dia / 2)
+    thresh = filters.threshold_otsu(lap)
+    mask = lap > thresh
+    opened = morphology.binary_opening(mask, morphology.disk(min_dia // 2))
+    labeled = measure.label(opened)
+    for props in measure.regionprops(labeled):
+        if props.area < min_area or props.area > max_area:
+            opened[labeled == props.label] = 0
 
-    se = morphology.disk(min_dia / 2)
-    thresh = filters.threshold_otsu(normalized)
-    segmented = morphology.binary_opening(normalized > thresh, footprint=se) 
-
-    return segmented
+    return opened
 
 def label_segmented_stack(stack: np.ndarray, min_area: int = 36, max_area: int = 180):
     labels: np.ndarray = measure.label(stack)
@@ -44,8 +65,7 @@ def label_segmented_stack(stack: np.ndarray, min_area: int = 36, max_area: int =
     return labels
 
 def segment_stack(stack: np.ndarray):
-    normalized = gedi._preprocess_gedi_rfp(stack)
-    return np.array([segment_soma_iN_gfp(frame) for frame in normalized])
+    return np.array([segment_soma_iN_gfp(frame) for frame in stack])
 
 def filter_lone_cells(img: np.ndarray, min_area: int = 36, max_area: int = 180):
     frame = img.copy()
