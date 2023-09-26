@@ -1,5 +1,6 @@
 from pathlib import Path
 import tempfile 
+import click
 
 from skimage import exposure # type: ignore
 from cvat_sdk import make_client, Client
@@ -8,7 +9,7 @@ from cvat_sdk.api_client import Configuration, ApiClient, exceptions
 from cvat_sdk.api_client.models import *
 import tifffile
 
-from .settings import settings
+from ..core.settings import settings
 
 
 def get_project_id(client: Client, project_name: str) -> int | None:
@@ -108,10 +109,15 @@ def deploy_ts(project_name: str, stacks: list[Path]):
             
             print(f"created task for {label}")
 
-def cli_entry(args):
-    if len(args.images) == 1 and args.images[0].is_dir():
-        args.images = list(args.images[0].glob("*"))
-    if args.ts:
-        deploy_ts(args.project_name, args.images)
+
+@click.command("cvat-deploy")
+@click.argument('project_name', type=str)
+@click.argument('images', nargs=-1, type=click.Path(exists=True, path_type=Path))
+@click.option('--ts', is_flag=True, default=False)
+def cli_entry(project_name: str, images: list[Path], ts: bool):
+    if len(images) == 1 and images[0].is_dir():
+        images = list(images[0].glob("*"))
+    if ts:
+        deploy_ts(project_name, images)
     else:
-        deploy_frames(args.project_name, args.images)
+        deploy_frames(project_name, images)

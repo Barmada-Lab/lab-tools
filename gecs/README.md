@@ -1,3 +1,2 @@
-# GEneric Collection of Scripts
+# Tarot
 
-Sometimes I write one-off scripts that might get used again. I put those scripts here... just in case.

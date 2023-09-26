@@ -16,6 +16,10 @@ lifelines = "^0.27.4"
 largestinteriorrectangle = "^0.2.0"
 ipython = "8.8"
 scipy = "^1.10.1"
+nd2 = "^0.7.2"
+ome-types = "^0.4.2"
+lxml = "^4.9.3"
+dask = "^2023.9.2"
 
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^3.6.2"

@@ -1,8 +1,9 @@
 from typing import Callable, Any
 from pathlib import Path
-import os
+import click
 
 from skimage import exposure # type: ignore
+import matplotlib.pyplot as plt # type: ignore
 from PIL import Image
 import numpy as np
 import pandas as pd
@@ -27,6 +28,12 @@ def std(labeled: np.ndarray, raw: np.ndarray):
 def area(labeled: np.ndarray, raw: np.ndarray):
     return measure(labeled, raw, np.count_nonzero)
 
+def hist(labeled: np.ndarray, raw: np.ndarray):
+    def f(x: np.ndarray):
+        rescaled = exposure.rescale_intensity(x, out_range="uint8")
+        return np.histogram(rescaled, bins=256, range=(0, 255))[0]
+    return measure(labeled, raw, f)
+
 def cumhist(labeled: np.ndarray, raw: np.ndarray):
     def f(x: np.ndarray):
         rescaled = exposure.rescale_intensity(x, out_range="uint8")
@@ -48,8 +55,7 @@ def measure_rois(
         measure_avg: bool = False, 
         measure_median: bool = False, 
         measure_std: bool = False, 
-        measure_area: bool = False,
-        measure_cumhist: bool = False):
+        measure_area: bool = False):
 
     raw_pil = Image.open(raw_path)
     raw = np.array(raw_pil)
@@ -75,26 +81,31 @@ def measure_rois(
     if measure_area:
         area_measurements = area(segmented, raw)
         measurements['area'] = pd.Series(area_measurements)
-    if cumhist:
-        cumhist_measurements = cumhist(segmented, raw)
-        measurements['cumhist'] = pd.Series(cumhist_measurements)
 
     return measurements
 
-def cli_entry(args):
-    roi_paths = list(args.roi_dir.glob('*'))
+@click.command("measure")
+@click.argument('raw_dir', type=click.Path(exists=True, path_type=Path))
+@click.argument('roi_dir', type=click.Path(exists=True, path_type=Path))
+@click.option('--output', type=Path, default=None)
+@click.option('--avg', is_flag=True, default=False)
+@click.option('--median', is_flag=True, default=False)
+@click.option('--std', is_flag=True, default=False)
+@click.option('--area', is_flag=True, default=False)
+def cli_entry(raw_dir: Path, roi_dir: Path, output:Path, avg:bool, median:bool, std:bool, area:bool):
+    roi_paths = list(roi_dir.glob('*'))
     if roi_paths[0].name.endswith('.png'):
-        raw_paths = [args.raw_dir / roi.name.replace(".png",".tif") for roi in roi_paths]
+        raw_paths = [raw_dir / roi.name.replace(".png",".tif") for roi in roi_paths]
     else:
-        raw_paths = [args.raw_dir / roi.name for roi in roi_paths]
+        raw_paths = [raw_dir / roi.name for roi in roi_paths]
 
     assert all([roi_path.exists() for roi_path in roi_paths]), 'Not all raw images have a corresponding ROI image'
 
     df = pd.DataFrame()
     for raw, roi in zip(raw_paths, roi_paths):
-        measurements = measure_rois(raw, roi, args.avg, args.median, args.std, args.area, args.cumhist)
+        measurements = measure_rois(raw, roi, avg, median, std, area)
         measurements.insert(loc=0, column='img', value=raw.name)
         df = pd.concat([df, measurements], axis=0)
 
-    output_path = args.output if args.output is not None else Path.cwd() / 'measurements.csv'
+    output_path = output if output is not None else Path.cwd() / 'measurements.csv'
     df.to_csv(output_path, index_label='roi_id')

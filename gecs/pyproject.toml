@@ -5,7 +5,7 @@ description = ""
 authors = ["jake <jwaksmac@umich.edu>"]
 
 [tool.poetry.scripts]
-gecs = "gecs.cli:main"
+gecs = "gecs.cli:cli"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.11"
@@ -16,6 +16,8 @@ survival = { path = "../survival", develop = true }
 scikit-image = "^0.19.3"
 pydantic = "<2.0.0"
 python-dotenv = "^1.0.0"
+trogon = "^0.5.0"
+click = "^8.1.7"
 
 [build-system]
 requires = ["poetry-core"]

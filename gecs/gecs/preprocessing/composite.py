@@ -1,5 +1,6 @@
 from typing import Any
 
+import click
 from pathlib import Path
 from collections import defaultdict
 import tifffile
@@ -14,6 +15,7 @@ from improc.processes import OneToOneTask, Pipeline
 from improc.processes import BaSiC
 from improc.processes import stack
 from improc.processes.composite import Composite
+
 
 class ConvertHack(OneToOneTask):
     def __init__(self, overwrite=False) -> None:
@@ -113,10 +115,14 @@ def composite_survival(experiment: Experiment, ignore_channels: list[Channel] = 
         mosaic_label = "_".join(map(str, mosaic.index))
         tifffile.imwrite(experiment.scratch_dir / "composited" / f"{vertex.label}-{mosaic_label}.tif", sum_img)
 
-def cli_entry(args):
-    scratch_dir = args.scratch_dir if args.scratch_dir is not None else args.experiment_dir / "processed_imgs"
-    experiment = loader.load_experiment(args.experiment_dir, scratch_dir)
-    if args.icc_hack:
+@click.command("composite")
+@click.argument('experiment_dir', type=click.Path(exists=True, path_type=Path))
+@click.option('--scratch-dir', type=click.Path(path_type=Path), default=None)
+@click.option('--icc-hack', is_flag=True, default=False)
+def cli_entry(experiment_dir, scratch_dir=None, icc_hack=False, ignore=[]):
+    scratch_dir = scratch_dir if scratch_dir is not None else experiment_dir / "processed_imgs"
+    experiment = loader.load_experiment(experiment_dir, scratch_dir)
+    if icc_hack:
         composite_icc_hack(experiment)
     else:
-        composite_survival(experiment, args.ignore)
+        composite_survival(experiment, ignore)
