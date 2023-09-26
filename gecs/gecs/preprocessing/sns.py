@@ -6,6 +6,7 @@ from pystackreg import StackReg
 import tifffile
 import numpy as np
 import os
+import click
 
 from survival.gedi import _preprocess_gedi_rfp
 from improc.experiment.types import Vertex, Mosaic, Exposure, Channel, Timepoint, Image
@@ -73,12 +74,19 @@ def stitch_n_stack(experiment: Experiment, collection: str, legacy: bool = False
             os.makedirs(outpath.parent, exist_ok=True)
             tifffile.imwrite(outpath, data_rescaled)
 
-def cli_entry(args):
-    scratch_dir = args.scratch_dir if args.scratch_dir is not None else args.experiment_dir / "processed_imgs"
-    experiment = loader.load_experiment(args.experiment_dir, scratch_dir)
+@click.command("stitch-n-stack")
+@click.argument('experiment_dir', type=click.Path(exists=True, path_type=Path))
+@click.option('--scratch-dir', type=click.Path(path_type=Path), default=None)
+@click.option('--collection', type=str, default="raw_imgs")
+@click.option('--out-range', type=str, default='uint16')
+@click.option('--no-stitch', is_flag=True, default=False)
+@click.option('--legacy', is_flag=True, default=False)
+def cli_entry(experiment_dir: Path, scratch_dir: Path, collection: str, legacy: bool, out_range: str, no_stitch: bool):
+    scratch_dir = scratch_dir if scratch_dir is not None else experiment_dir / "processed_imgs"
+    experiment = loader.load_experiment(experiment_dir, scratch_dir)
     stitch_n_stack(
         experiment, 
-        args.collection,
-        args.legacy, 
-        args.out_range, 
-        not args.no_stitch)
+        collection,
+        legacy, 
+        out_range, 
+        not no_stitch)

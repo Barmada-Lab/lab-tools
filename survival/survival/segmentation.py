@@ -23,10 +23,10 @@ def logmax_filter(
 
 def segment_soma_iN_gfp(
         frame: np.ndarray, 
-        min_dia: int = 6, 
-        max_dia: int = 15,
-        min_area: int = 57,
-        max_area: int = 144):
+        min_dia: int = 12, 
+        max_dia: int = 30,
+        min_area: int = 114,
+        max_area: int = 288):
     """
     Segments soma in images typical of iNeurons in GFP
 

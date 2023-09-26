@@ -1,71 +1,44 @@
-import argparse
-
 from pathlib import Path
 
-from improc.experiment.types import Channel
+import click
+from trogon import tui
 
-from . import composite, correlate, cvat_deploy, flatfield, measure, sns, masa_prep
+from .preprocessing.composite import cli_entry as composite
+from .preprocessing.sns import cli_entry as sns
+from .preprocessing.flatfield import cli_entry as flatfield
+from .preprocessing.project import cli_entry as mip
 
-def parse_args():
-    root_parser = argparse.ArgumentParser()
-    root_parser.add_argument('--parallelism', type=int, help='Number of parallel processes', default=1)
+from .analysis.measure import cli_entry as measure
+from .analysis.colocalize import cli_entry as correlate
 
-    subparsers = root_parser.add_subparsers(dest='command', required=True)
+from .util.masa_prep import cli_entry as masa_prep
+from .util.cvat_deploy import cli_entry as cvat_deploy
 
-    composite_parser = subparsers.add_parser('composite')
-    composite_parser.add_argument('experiment_dir', type=Path)
-    composite_parser.add_argument('--scratch_dir', type=Path, default=None)
-    composite_parser.add_argument('--icc-hack', action='store_true')
-    composite_parser.add_argument('--ignore', nargs='+', default=[], type=Channel)
-    composite_parser.set_defaults(func=composite.cli_entry)
+@tui()
+@click.group()
+@click.pass_context
+def cli(ctx):
+    ctx.ensure_object(dict)
 
-    sns_parser = subparsers.add_parser('sns', help='stitch n stack')
-    sns_parser.add_argument('experiment_dir', type=Path)
-    sns_parser.add_argument('--scratch_dir', type=Path, default=None)
-    sns_parser.add_argument('--collection', type=str, default="raw_imgs", help='Collection name')
-    sns_parser.add_argument('--legacy', action='store_true', default=False, help='Use legacy stitching')
-    sns_parser.add_argument('--out-range', default='uint16', help='Output range')
-    sns_parser.add_argument('--no-stitch', action='store_true', default=False)
-    sns_parser.set_defaults(func=sns.cli_entry)
+@cli.group()
+def preprocess():
+    pass
 
-    flatfield_parser = subparsers.add_parser('flatfield', help='Flatfield correction, uses BaSiC')
-    flatfield_parser.add_argument('experiment_dir', type=Path, help='Experiment directory')
-    flatfield_parser.add_argument('--collection', type=str, default="raw_imgs", help='Collection name')
-    flatfield_parser.add_argument('--scratch-dir', type=Path, default=None)
-    flatfield_parser.add_argument('--group-by', nargs='+', default=['vertex', 'mosaic', 'exposure'], help='Group by')
-    flatfield_parser.set_defaults(func=flatfield.cli_entry)
+preprocess.add_command(composite)
+preprocess.add_command(sns)
+preprocess.add_command(flatfield)
+preprocess.add_command(mip)
 
-    measure_parser = subparsers.add_parser('measure', help='measure rois')
-    measure_parser.add_argument('raw_dir', type=Path)
-    measure_parser.add_argument('roi_dir', type=Path)
-    measure_parser.add_argument('--output', type=Path, default=None)
-    measure_parser.add_argument('--avg', action='store_true', default=False)
-    measure_parser.add_argument('--median', action='store_true', default=False)
-    measure_parser.add_argument('--std', action='store_true', default=False)
-    measure_parser.add_argument('--area', action='store_true', default=False)
-    measure_parser.add_argument('--cumhist', action='store_true', default=False)
-    measure_parser.set_defaults(func=measure.cli_entry)
+@cli.group()
+def analyze():
+    pass
 
-    correlate_parser = subparsers.add_parser('correlate', help='correlate rois')
-    correlate_parser.add_argument('roi_dir1', type=Path)
-    correlate_parser.add_argument('roi_dir2', type=Path)
-    correlate_parser.add_argument('--output', type=Path, default=None)
-    correlate_parser.set_defaults(func=correlate.cli_entry)
+analyze.add_command(measure)
+analyze.add_command(correlate)
 
-    masa_prep_parser = subparsers.add_parser('masa-prep')
-    masa_prep_parser.add_argument('experiment_dir', type=Path)
-    masa_prep_parser.add_argument('--scratch_dir', type=Path, default=None)
-    masa_prep_parser.add_argument('--collection', type=str, default="raw_imgs", help='Collection name')
-    masa_prep_parser.set_defaults(func=masa_prep.cli_entry)
+@cli.group()
+def util():
+    pass
 
-    cvat_parser= subparsers.add_parser('cvat-deploy')
-    cvat_parser.add_argument('project_name')
-    cvat_parser.add_argument('--ts', action='store_true', default=False)
-    cvat_parser.add_argument('images', nargs='+', type=Path)
-    cvat_parser.set_defaults(func=cvat_deploy.cli_entry)
-
-    return root_parser.parse_args()
-
-def main():
-    args = parse_args()
-    args.func(args)
+util.add_command(masa_prep)
+util.add_command(cvat_deploy)

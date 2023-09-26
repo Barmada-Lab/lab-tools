@@ -153,11 +153,11 @@ def event_survival_gfp(stacked: np.ndarray, stacks_output: Path | None = None) -
     the law of large numbers, but be cognizant of its presence.
 
     """
-    resized = np.array([resize(frame, (512, 512)) for frame in stacked])
-    segmented = segmentation.segment_stack(resized)
+    # resized = np.array([resize(frame, (512, 512)) for frame in stacked])
+    segmented = segmentation.segment_stack(stacked)
 
     if stacks_output is not None:
-        audit.write_audited_segmentation_gif(resized, segmented, stacks_output)
+        audit.write_audited_segmentation_gif(stacked, segmented, stacks_output)
 
     counts = []
     for frame in segmented:
@@ -306,7 +306,7 @@ def make_stacks_rfp_method(experiment: Experiment) -> Iterable[tuple[str, np.nda
         yield well, None
 
 def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarray | None]]:
-    corrected = experiment.datasets["basic_corrected"]
+    corrected = experiment.datasets["stitched"]
 
     wells: set[str] = set()
     last_tp = 0
@@ -444,10 +444,7 @@ def process(exp_path: Path, scratch_path: Path, save_masks: bool, single_cell: b
     os.makedirs(results_path, exist_ok=True)
 
     if "basic_corrected" not in experiment.datasets:
-        elems: list[Task] = [ BaSiC() ]
-        if not gedi:
-            # stitch early for GFP
-            elems.append(Stack())
+        elems: list[Task] = [ BaSiC(), Stitch() ]
         pipeline = Pipeline(*elems)
         pipeline.run(experiment, "raw_imgs")
 
