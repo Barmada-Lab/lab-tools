@@ -88,7 +88,7 @@ def event_survival_gedi_gfp(
 
     lowpass_gfp = np.array([filters.butterworth(frame, cutoff_frequency_ratio=0.1, high_pass=False) for frame in gfp])
     normalized_gfp = gedi._preprocess_gedi_rfp(lowpass_gfp)
-    segmented = segmentation.segment_stack(normalized_gfp)
+    segmented = segmentation.segment_soma_iN_gfp(normalized_gfp)
 
     # df = pd.DataFrame(columns=["n_t0", "n_dead"]).rename_axis("id")
 
@@ -154,7 +154,7 @@ def event_survival_gfp(stacked: np.ndarray, stacks_output: Path | None = None) -
 
     """
     # resized = np.array([resize(frame, (512, 512)) for frame in stacked])
-    segmented = segmentation.segment_stack(stacked)
+    segmented = segmentation.segment_soma_iN_gfp(stacked)
 
     if stacks_output is not None:
         audit.write_audited_segmentation_gif(stacked, segmented, stacks_output)
@@ -171,14 +171,15 @@ def event_survival_gfp(stacked: np.ndarray, stacks_output: Path | None = None) -
     for id in range(n_t0):
         df.loc[id] = {"tp": tf, "dead": 0}
 
-    total_dead = 0
-    for last_tp, (last, now) in enumerate(zip(counts[:-1], counts[1:])):
-        delta = last - now
+
+    n_dead = 0
+    for idx, (last_frame, this_frame) in enumerate(zip(counts[:-1], counts[1:])):
+        delta = this_frame - last_frame
         if delta > 0:
-            for id in range(total_dead, total_dead + delta):
-                df.loc[id] = {"tp": last_tp + 1, "dead": 1}
-            total_dead += delta
-    
+            for id in range(n_dead, n_dead + delta):
+                df.loc[id] = {"tp": idx, "dead": 1}
+            n_dead += delta
+
     return df
 
 
@@ -281,8 +282,8 @@ def make_stacks_rfp_method(experiment: Experiment) -> Iterable[tuple[str, np.nda
     groups = defaultdict(list)
     for im in corrected.images:
         tp = im.get_tag(Timepoint).index # type:ignore
-        mosaic = "_".join(map(str,im.get_tag(Mosaic).index)) # type:ignore
-        vertex = f"{im.vertex}_{mosaic}" # type: ignore
+        # mosaic = "_".join(map(str,im.get_tag(Mosaic).index)) # type:ignore
+        vertex = f"{im.vertex}" #_{mosaic}" # type: ignore
         groups[(vertex, tp)].append(im)
         if tp > last_tp:
             last_tp = tp
@@ -306,7 +307,7 @@ def make_stacks_rfp_method(experiment: Experiment) -> Iterable[tuple[str, np.nda
         yield well, None
 
 def make_stacks_avg_reg(experiment: Experiment) -> Iterable[tuple[str, np.ndarray | None]]:
-    corrected = experiment.datasets["stitched"]
+    corrected = experiment.datasets["basic_corrected"]
 
     wells: set[str] = set()
     last_tp = 0
@@ -438,15 +439,18 @@ def analysis(args):
     return vertex, stacked, df
 
 def process(exp_path: Path, scratch_path: Path, save_masks: bool, single_cell: bool, use_gedi: bool, avg_reg: bool, cpus: int):
+
     experiment = loader.load_experiment(exp_path, scratch_path)
 
     results_path = exp_path / "results"
     os.makedirs(results_path, exist_ok=True)
 
     if "basic_corrected" not in experiment.datasets:
-        elems: list[Task] = [ BaSiC(), Stitch() ]
-        pipeline = Pipeline(*elems)
+        pipeline = Pipeline(
+            BaSiC(resize_shape=(512,512), parallelism=cpus)
+        )
         pipeline.run(experiment, "raw_imgs")
+
 
     stacked_output = scratch_path / "stacked"
     if not stacked_output.exists() or len(list(stacked_output.glob("*.tif"))) == 0:

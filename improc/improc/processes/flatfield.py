@@ -5,6 +5,7 @@ from multiprocessing import Pool
 from numpy.typing import NDArray
 from typing import Hashable
 from skimage.morphology import disk, white_tophat
+from skimage.transform import resize
 
 from improc.experiment import Image, Tag, T
 from improc.experiment.types import Dataset, Experiment, Exposure, MemoryImage, Mosaic, Vertex
@@ -24,8 +25,9 @@ def apply_shading_correction(images: NDArray[np.float64]) -> NDArray[np.float64]
 
 class BaSiC(Task):
 
-    def __init__(self, group_by = ['vertex', 'mosaic', 'exposure'], overwrite=False, parallelism=1) -> None:
+    def __init__(self, resize_shape=None, group_by = ['vertex', 'mosaic', 'exposure'], overwrite=False, parallelism=1) -> None:
         super().__init__("basic_corrected")
+        self.resize_shape = resize_shape
         self.overwrite = overwrite
         self.group_by = group_by
         self.parallelism = parallelism
@@ -35,7 +37,10 @@ class BaSiC(Task):
 
     def correct(self, ims: list[Image]):
         arr = np.array([im.data for im in ims]).astype(np.float64)
-        return (ims, apply_shading_correction(arr))
+        corrected = apply_shading_correction(arr)
+        if self.resize_shape is not None:
+            corrected = np.array([resize(frame, self.resize_shape) for frame in corrected])
+        return (ims, corrected)
 
     def process(self, dataset: Dataset, experiment: Experiment) -> Dataset:
         output = experiment.new_dataset(self.output_label, overwrite=self.overwrite)
