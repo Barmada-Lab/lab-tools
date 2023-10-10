@@ -52,12 +52,5 @@ source ~/.bash_profile
 
 pyenv install 3.10.6
 pyenv global 3.10.6
-
-if [ -d $HOME/.poetry ]; then
-    curl -sSL https://install.python-poetry.org | python3 - --uninstall
-fi
-
-curl -sSL https://install.python-poetry.org | python3 -
-idem_patch_bashprofile 'export PATH=$HOME/.poetry/bin:$PATH'
-idem_patch_bashprofile 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring'
-source ~/.bash_profile
+pip install pipx
+pipx ensurepath
