@@ -69,7 +69,8 @@ def read_lux_experiment(base: pl.Path):
     channel_coords = [exposure.split("_")[0] for exposure in exposure_tags]
 
     return xr.DataArray(
-        plate, name="raw",
+        plate,
+        name="raw",
         dims=("well", "field", "channel", "t", "y", "x"),
         coords={
             "well": well_coords,
@@ -83,8 +84,8 @@ def logmax_filter(
         arr: xr.DataArray, 
         min_sigma: float = 14, 
         max_sigma: float = 25, 
-        n_sigma: int = 15):
-    def apply(frame):
+        n_sigma: int = 3):
+    def _logmax_filter(frame):
         padding = int(max_sigma)
         padded = np.pad(frame, padding, mode='edge')
         sigmas = np.linspace(min_sigma, max_sigma, n_sigma)
@@ -94,7 +95,7 @@ def logmax_filter(
         filtered = unpadded.max(axis=0)
         return filtered
     return xr.apply_ufunc(
-        apply,
+        _logmax_filter,
         arr,
         input_core_dims=[["y","x"]],
         output_core_dims=[["y","x"]],
@@ -102,7 +103,7 @@ def logmax_filter(
         vectorize=True)
 
 def segment_logmaxed_stack(logmaxed: xr.DataArray, min_dia: int = 12):
-    def apply(logmaxed):
+    def _segment_logmaxed_stack(logmaxed):
         thresh = filters.threshold_otsu(logmaxed)
         mask = logmaxed > thresh
         se = morphology.disk(min_dia // 2)
@@ -110,7 +111,7 @@ def segment_logmaxed_stack(logmaxed: xr.DataArray, min_dia: int = 12):
             [morphology.binary_opening(frame, se) for frame in mask])
         return opened
     return xr.apply_ufunc(
-        apply,
+        _segment_logmaxed_stack,
         logmaxed,
         input_core_dims=[["t","y","x"]],
         output_core_dims=[["t","y","x"]],
@@ -118,11 +119,11 @@ def segment_logmaxed_stack(logmaxed: xr.DataArray, min_dia: int = 12):
         vectorize=True)
 
 def register(arr: xr.DataArray):
-    def apply(stack):
+    def _register(stack):
         sr = StackReg(StackReg.RIGID_BODY)
         return sr.register_stack(stack)
     return xr.apply_ufunc(
-        apply,
+        _register,
         arr,
         input_core_dims=[["t","y","x"]],
         output_core_dims=[["t","tmat_y","tmat_x"]],
@@ -131,12 +132,12 @@ def register(arr: xr.DataArray):
         vectorize=True)
 
 def transform(arr, tmats):
-    def apply(stack, tmats):
+    def _transform(stack, tmats):
         sr = StackReg(StackReg.RIGID_BODY)
         transformed = sr.transform_stack(stack, tmats=tmats)
         return transformed
     return xr.apply_ufunc(
-        apply,
+        _transform,
         arr,
         tmats,
         input_core_dims=[["t","y","x"],["t", "tmat_y", "tmat_x"]],
@@ -146,14 +147,14 @@ def transform(arr, tmats):
         vectorize=True)
 
 def annotate_segmentation(raw, segmented, color=(1,1,0)):
-    def apply(raw, segmented):
+    def _annotate_segmentation(raw, segmented):
         rescaled = exposure.rescale_intensity(raw, out_range='uint8')
         marked = segmentation.mark_boundaries(
             rescaled, segmented, color=color)
         marked = exposure.rescale_intensity(marked, out_range='uint8')
         return marked
     return xr.apply_ufunc(
-        apply,
+        _annotate_segmentation,
         raw,
         segmented,
         input_core_dims=[["y","x"],["y","x"]],
@@ -164,7 +165,7 @@ def annotate_segmentation(raw, segmented, color=(1,1,0)):
         vectorize=True)
     
 def write_ts_chunks_as_gifs(arr, base):
-    def apply(arr):
+    def _write_ts_chunks_as_gifs(arr):
         name = "-".join(map(str, [arr.well.values[0], arr.field.values[0], arr.channel.values[0]]))
         path = base / f"{name}.gif"
         data = arr.data.squeeze()
@@ -173,36 +174,39 @@ def write_ts_chunks_as_gifs(arr, base):
         frame_0.save(path, format='GIF', save_all=True, 
             append_images=the_rest, duration=500, loop=0)
         return arr
-    return xr.map_blocks(apply, arr, template=arr)
+    return xr.map_blocks(_write_ts_chunks_as_gifs, arr, template=arr)
 
-def run(path: pl.Path, scratch: pl.Path, use_stored: bool = False):
+def run(path: pl.Path, scratch: pl.Path, use_slurm: bool = False):
 
-    cluster = SLURMCluster(
-        account="sbarmada0",
-        cores=1,
-        memory="7 GB",
-        processes=1,
-        interface="ib0",
-        local_directory="/scratch/sbarmada_root/sbarmada0/jwaksmac/",
-        scheduler_options={
-            "dashboard_address": "0.0.0.0:42613"
-        },
-    )
-    print(cluster.dashboard_link)
+    if use_slurm:
+        cluster = SLURMCluster(
+            account="sbarmada0",
+            cores=1,
+            memory="7 GB",
+            processes=1,
+            interface="ib0",
+            local_directory="/scratch/sbarmada_root/sbarmada0/jwaksmac/",
+            scheduler_options={
+                "dashboard_address": "0.0.0.0:42613"
+            },
+        )
 
-    cluster.scale(10)
-    client = Client(cluster, scheduler_file=scratch / "scheduler.json")
+        cluster.adapt(maximum_jobs=20)
+        client = Client(cluster)
 
-    if use_stored:
-        zarr_path = scratch / "raw.zarr"
+        zarr_path = scratch / f"{path.name}.zarr"
         if not zarr_path.exists():
             experiment = read_lux_experiment(path)
-            experiment.to_zarr(scratch / "raw.zarr")
-        experiment = xr.open_zarr(scratch / "raw.zarr").raw
+            experiment.to_zarr(zarr_path)
+        experiment = xr.open_zarr(zarr_path).raw
+
     else:
+        client = Client()
         experiment = read_lux_experiment(path)
 
-    experiment.persist()
+    print(client.dashboard_link)
+
+    experiment.load()
     survival_marker = experiment.sel(channel="GFP")
     logmax = logmax_filter(survival_marker)
     segmented = segment_logmaxed_stack(logmax)
@@ -210,7 +214,6 @@ def run(path: pl.Path, scratch: pl.Path, use_stored: bool = False):
     raw_registered = transform(experiment, tmats)
     segmented_registered = transform(segmented, tmats) > 0.5
     annotated = annotate_segmentation(raw_registered, segmented_registered)
-    annotated.sel()
 
     audit_output = path / "audited"
     audit_output.mkdir(exist_ok=True)
