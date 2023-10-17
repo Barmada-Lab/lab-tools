@@ -1,8 +1,9 @@
 import pathlib as pl
+from itertools import product
 import socket
 
 import dask
-from dask.distributed import Client
+from dask.distributed import Client, wait
 import dask.array as da
 import xarray as xr
 import numpy as np
@@ -68,16 +69,19 @@ def read_lux_experiment(base: pl.Path):
     field_coords = [field.replace("mosaic_","") for field in field_tags]
     channel_coords = [exposure.split("_")[0] for exposure in exposure_tags]
 
-    return xr.DataArray(
-        plate,
-        name="raw",
-        dims=("well", "field", "channel", "t", "y", "x"),
-        coords={
-            "well": well_coords,
-            "field": field_coords,
-            "channel": channel_coords,
-            "t": timepoint_tags
-        }
+    return xr.Dataset(
+        data_vars=dict(
+            raw = xr.DataArray(
+                plate,
+                dims=("well", "field", "channel", "t", "y", "x"),
+                coords={
+                    "well": well_coords,
+                    "field": field_coords,
+                    "channel": channel_coords,
+                    "t": timepoint_tags
+                }
+            )
+        )
     )
 
 def logmax_filter(
@@ -121,7 +125,8 @@ def segment_logmaxed_stack(logmaxed: xr.DataArray, min_dia: int = 12):
 def register(arr: xr.DataArray):
     def _register(stack):
         sr = StackReg(StackReg.RIGID_BODY)
-        return sr.register_stack(stack)
+        tmats = sr.register_stack(stack)
+        return tmats
     return xr.apply_ufunc(
         _register,
         arr,
@@ -164,20 +169,27 @@ def annotate_segmentation(raw, segmented, color=(1,1,0)):
         dask="parallelized",
         vectorize=True)
     
-def write_ts_chunks_as_gifs(arr, base):
-    def _write_ts_chunks_as_gifs(arr):
-        name = "-".join(map(str, [arr.well.values[0], arr.field.values[0], arr.channel.values[0]]))
+def write_ts_as_gifs(arr, base, client):
+    def _write_ts_as_gifs(stack, well, field):
+        name = "-".join(map(str, (well, field)))
         path = base / f"{name}.gif"
-        data = arr.data.squeeze()
+        data = np.array(stack)
         frame_0 = Image.fromarray(data[0])
         the_rest = [Image.fromarray(frame) for frame in data[1:]]
         frame_0.save(path, format='GIF', save_all=True, 
             append_images=the_rest, duration=500, loop=0)
-        return arr
-    return xr.map_blocks(_write_ts_chunks_as_gifs, arr, template=arr)
+        
+    futures = []
+    for well, field in product(arr.well.values, arr.field.values):
+        stack = arr.sel(well=well, field=field)
+        futures.append(
+            client.submit(_write_ts_as_gifs, stack, well, field))
+    wait(futures)
+        
 
 def run(path: pl.Path, scratch: pl.Path, use_slurm: bool = False):
 
+    zarr_path = scratch / f"{path.name}.zarr"
     if use_slurm:
         cluster = SLURMCluster(
             account="sbarmada0",
@@ -194,27 +206,36 @@ def run(path: pl.Path, scratch: pl.Path, use_slurm: bool = False):
         cluster.adapt(maximum_jobs=20)
         client = Client(cluster)
 
-        zarr_path = scratch / f"{path.name}.zarr"
-        if not zarr_path.exists():
-            experiment = read_lux_experiment(path)
-            experiment.to_zarr(zarr_path)
-        experiment = xr.open_zarr(zarr_path).raw
+        # if not zarr_path.exists():
+        experiment = read_lux_experiment(path)
+            # experiment.to_zarr(zarr_path)
+
+        # experiment = xr.open_zarr(zarr_path)
 
     else:
-        client = Client()
+        client = Client(n_workers=10, threads_per_worker=1)
         experiment = read_lux_experiment(path)
 
     print(client.dashboard_link)
 
-    experiment.load()
-    survival_marker = experiment.sel(channel="GFP")
+    subset = experiment.raw.sel(well=["C03","C04"])
+    survival_marker = subset.sel(channel="GFP")
     logmax = logmax_filter(survival_marker)
     segmented = segment_logmaxed_stack(logmax)
     tmats = register(logmax)
-    raw_registered = transform(experiment, tmats)
+    # TODO: well-by-well transform
+    raw_registered = transform(subset, tmats)
+    # threshold because transform outputs floats
     segmented_registered = transform(segmented, tmats) > 0.5
-    annotated = annotate_segmentation(raw_registered, segmented_registered)
+    annotated = annotate_segmentation(
+        raw_registered.sel(channel="GFP"), 
+        segmented_registered
+    )
+    experiment = experiment.assign(survival_segmentation=segmented_registered)
+    experiment = experiment.assign(survival_annotated=annotated)
 
-    audit_output = path / "audited"
-    audit_output.mkdir(exist_ok=True)
-    write_ts_chunks_as_gifs(annotated, audit_output).compute()
+    annotated_path = path / "annotated"
+    annotated_path.mkdir(exist_ok=True)
+
+    # TODO: stitch annotated stacks images together
+    write_ts_as_gifs(experiment.survival_annotated, annotated_path, client)
