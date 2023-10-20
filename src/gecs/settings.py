@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     cvat_url: str = "http://localhost:8080"
     cvat_username: str = ""
     cvat_password: str = ""
+    cvat_org_slug: str = "barma"
 
     class Config:
         env_file = USER_CONFIG_HOME / "gecs.env"
