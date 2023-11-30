@@ -10,7 +10,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from ..settings import settings
-from .cvat_upload_experiment import prep_experiment
+from .upload import prep_experiment
 
 def extract_survival_result(track) -> dict[str, Any]:
     points = track.shapes
@@ -54,13 +54,13 @@ def analyze_survival(
             xlabel="T",
             title="Baseline cumulative hazards",
             drawstyle="steps")
-        output_fig = output_dir / "CoxPH_baselines.pdf"
+        output_fig = output_dir / "CoxPH_baselines_CVAT.pdf"
         plt.savefig(output_fig, format="pdf")
 
-    output_csv = output_dir / "survival.csv"
+    output_csv = output_dir / "survival_CVAT.csv"
     df.to_csv(output_csv, index=False)
 
-@click.command("cvat-survival-analysis")
+@click.command("survival")
 @click.argument("project_name")
 @click.argument("output_dir", type=click.Path(path_type=pl.Path))
 @click.option("--well-csv", type=click.Path(path_type=pl.Path), default=None)
