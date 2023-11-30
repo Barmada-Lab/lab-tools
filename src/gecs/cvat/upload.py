@@ -129,7 +129,7 @@ def prep_experiment(
     experiment = display.rescale_intensity(experiment, ["y", "x"], in_percentile=(rescale, 100-rescale), out_range="uint8")
     return experiment
 
-@click.command("cvat-upload-experiment")
+@click.command("upload")
 @click.argument("project_name", type=str)
 @click.argument("experiment_base", type=click.Path(exists=True, file_okay=False, path_type=pl.Path))
 @click.option("--channels", type=str, default="", help="comma-separated list of channels to include")
@@ -169,7 +169,8 @@ def cli_entry(
         )
     ) as client:
 
-        client.organization_slug = settings.cvat_org_slug
+        org_slug = settings.cvat_org_slug
+        client.organization_slug = org_slug
         
         (data, _) = client.api_client.projects_api.list(search=project_name)
         assert data is not None and len(data.results) > 0, \
