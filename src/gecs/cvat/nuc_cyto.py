@@ -71,11 +71,18 @@ def measure_nuc_cyto_ratio(
 
     df = pd.DataFrame()
     for task_name, frame_names, labelled_arr in enumerate_rois(client, project_id):
-        # temp bs for nd2s
+        ### BEGIN MANUALLY EDITABLE SECTION
+
         tokens = task_name.split("_")
-        collection_name = "_".join(tokens[:-1]) + ".nd2"
+        # need different formatting depending on experiment........
+        loc = "_".join(tokens[:-1])
+        collection_name = loc
         collection = collections[collection_name]
-        intensity_arr = collection.sel(field=task_name)
+        field = tokens[-1]
+        # collection_name = loc
+        intensity_arr = collection.sel(loc=loc, field=int(field))
+
+        ### END MANUALLY EDITABLE SECTION
 
         channels = [name.split(".")[0].split("_")[-1] for name in frame_names]
         nuc_idx = channels.index(nuc_channel)
@@ -171,7 +178,7 @@ def cli_entry(
 
         # TODO: homogenize collections and put into one array
         if experiment_type == "nd2s":
-            collections = {nd2_file.name: prep_experiment(nd2_file, mip, False, experiment_type, 0.0, None, False) for nd2_file in experiment_base.glob("**/*.nd2")}
+            collections = {nd2_file.name.replace(".nd2",""): prep_experiment(nd2_file, mip, False, experiment_type, 0.0, None, False) for nd2_file in experiment_base.glob("**/*.nd2")}
         else:
             collections = {experiment_base.name: prep_experiment(experiment_base, mip, False, experiment_type, 0.0, None, False)}
 

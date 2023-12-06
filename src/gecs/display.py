@@ -1,5 +1,3 @@
-from itertools import product
-
 from PIL import ImageColor
 import cv2
 from skimage import exposure, color, util # type: ignore
