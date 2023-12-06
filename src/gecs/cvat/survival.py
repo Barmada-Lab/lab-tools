@@ -34,11 +34,11 @@ def analyze_survival(
     tasks = client.projects.retrieve(project_id).get_tasks()
     rows = []
     for task_meta in tqdm(tasks):
-        well = task_meta.name[:3]
+        loc = task_meta.name[:3]
         annotation = task_meta.get_annotations()
         for track in annotation.tracks:
             survival_result = extract_survival_result(track)
-            survival_result["well"] = well
+            survival_result["well"] = loc
             rows.append(survival_result)
     df = pd.DataFrame.from_records(rows)
 
