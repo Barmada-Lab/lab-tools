@@ -41,21 +41,21 @@ def read_tiff_toarray(path: pl.Path, shape: tuple):
 
 def read_lux_experiment(base: pl.Path, fillna: bool = True):
     timepoint_tags = sorted([int(path.name.replace("T","")) for path in base.glob("raw_imgs/*")])
-    loc_tags = set()
+    region_tags = set()
     field_tags = set()
     exposure_tags = set()
     for path in base.glob("raw_imgs/*/*.tif"):
-        loc, field, exposure = path.name.split(".")[0].split("-")
-        loc_tags.add(loc)
+        region, field, exposure = path.name.split(".")[0].split("-")
+        region_tags.add(region)
         field_tags.add(field)
         exposure_tags.add(exposure)
 
-    loc_tags = sorted(loc_tags)
+    region_tags = sorted(region_tags)
     field_tags = sorted(field_tags)
     exposure_tags = sorted(exposure_tags)
     timepoint_tags = sorted(timepoint_tags)
 
-    test_path = base / f"raw_imgs/T{timepoint_tags[0]}" / f"{loc_tags[0]}-{field_tags[0]}-{exposure_tags[0]}.tif"
+    test_path = base / f"raw_imgs/T{timepoint_tags[0]}" / f"{region_tags[0]}-{field_tags[0]}-{exposure_tags[0]}.tif"
     test_img = tifffile.imread(test_path)
     shape = test_img.shape
 
@@ -64,20 +64,20 @@ def read_lux_experiment(base: pl.Path, fillna: bool = True):
     for exposure in exposure_tags:
         timepoints = []
         for timepoint in timepoint_tags:
-            locs = []
-            for loc in loc_tags:
+            regions = []
+            for region in region_tags:
                 fields = []
                 for field in field_tags:
-                    path = base / "raw_imgs" / f"T{timepoint}" / f"{loc}-{field}-{exposure}.tif"
+                    path = base / "raw_imgs" / f"T{timepoint}" / f"{region}-{field}-{exposure}.tif"
                     img = read_tiff_toarray(path, shape)
                     fields.append(img)
-                locs.append(da.stack(fields))
-            timepoints.append(da.stack(locs))
+                regions.append(da.stack(fields))
+            timepoints.append(da.stack(regions))
         channels.append(da.stack(timepoints).rechunk((-1,1,1,-1,-1)))
     plate = da.stack(channels)
 
-    loc_names = [loc.replace("well_","") for loc in loc_tags]
-    loc_coords = list(map(wellplate_96_names.index, loc_names))
+    region_names = [region.replace("well_","") for region in region_tags]
+    region_coords = list(map(wellplate_96_names.index, region_names))
     field_coords = [field.replace("mosaic_","") for field in field_tags]
     channel_coords = [exposure.split("_")[0] for exposure in exposure_tags]
 
@@ -85,11 +85,11 @@ def read_lux_experiment(base: pl.Path, fillna: bool = True):
         data_vars=dict(
             intensity = xr.DataArray(
                 plate,
-                dims=("channel", "t", "loc", "field", "y", "x"),
+                dims=("channel", "t", "region", "field", "y", "x"),
                 coords={
                     "channel": channel_coords,
                     "t": timepoint_tags,
-                    "loc": loc_coords,
+                    "region": region_coords,
                     "field": field_coords,
                 }
             )
@@ -103,20 +103,20 @@ def read_lux_experiment(base: pl.Path, fillna: bool = True):
 
 def read_legacy_experiment(base: pl.Path, fillna: bool = True):
     timepoint_tags = sorted({int(path.name.replace("T","")) for path in base.glob("raw_imgs/*/*")})
-    loc_tags = set()
+    region_tags = set()
     field_id_tags = set()
     channel_tags = set()
     for path in base.glob("raw_imgs/**/*.tif"):
         channel_tags.add(path.parent.parent.parent.name)
-        loc, field = path.name.split(".")[0].split("_")
-        loc_tags.add(loc)
+        region, field = path.name.split(".")[0].split("_")
+        region_tags.add(region)
         field_id_tags.add(field)
     
     max_field_id = max(map(int, field_id_tags))
     dim = np.sqrt(max_field_id).astype(int)
     field_tags = list(map(lambda x: "_".join(map(str, x)), product(range(dim), range(dim))))
 
-    loc_tags = sorted(loc_tags)
+    region_tags = sorted(region_tags)
     channel_tags = sorted(channel_tags)
     field_id_tags = sorted(field_id_tags)
     timepoint_tags = sorted(timepoint_tags)
@@ -131,16 +131,16 @@ def read_legacy_experiment(base: pl.Path, fillna: bool = True):
     for channel in channel_tags:
         timepoints = []
         for timepoint in timepoint_tags:
-            locs = []
-            for loc in loc_tags:
+            regions = []
+            for region in region_tags:
                 fields = []
                 for field in field_id_tags:
-                    col = loc[1:]
-                    path = base / "raw_imgs" / channel / f"T{timepoint}" / f"col_{col}" / f"{loc}_{field}.tif"
+                    col = region[1:]
+                    path = base / "raw_imgs" / channel / f"T{timepoint}" / f"col_{col}" / f"{region}_{field}.tif"
                     img = read_tiff_toarray(path, shape) 
                     fields.append(img)
-                locs.append(da.stack(fields))
-            timepoints.append(da.stack(locs))
+                regions.append(da.stack(fields))
+            timepoints.append(da.stack(regions))
         channels.append(da.stack(timepoints).rechunk((-1,1,1,-1,-1)))
     plate = da.stack(channels)
 
@@ -148,11 +148,11 @@ def read_legacy_experiment(base: pl.Path, fillna: bool = True):
         data_vars=dict(
             intensity = xr.DataArray(
                 plate,
-                dims=["channel", "t", "loc", "field", "y", "x"],
+                dims=["channel", "t", "region", "field", "y", "x"],
                 coords={
                     "channel": channel_tags,
                     "t": timepoint_tags,
-                    "loc": loc_tags,
+                    "region": region_tags,
                     "field": field_tags,
                 }
             )
@@ -166,13 +166,13 @@ def read_legacy_experiment(base: pl.Path, fillna: bool = True):
 
 def read_legacy_icc_experiment(base_path: pl.Path, fillna: bool = True):
     experiment = read_legacy_experiment(base_path, fillna=fillna)
-    return experiment.squeeze(drop=True).rename(t="loc")
+    return experiment.squeeze(drop=True).rename(t="region")
 
 def read_nd2(base_path: pl.Path):
 
     arr = nd2.imread(base_path, dask=True, xarray=True)
     nd2_label = base_path.name.replace(".nd2","")
-    arr = arr.expand_dims("loc").assign_coords(loc=[nd2_label])
+    arr = arr.expand_dims("region").assign_coords(region=[nd2_label])
 
     # single-channel images don't include C
     if "C" not in arr.dims:
@@ -185,9 +185,9 @@ def read_nd2(base_path: pl.Path):
     # single-field images don't include P
     if "P" not in arr.dims:
         arr = arr.expand_dims("P")
-        point_coords = [f"0"]
+        point_coords = ["0"]
     else:
-        point_coords = list(range(arr.P.size))
+        point_coords = list(map(str, range(arr.P.size)))
     arr = arr.assign_coords(P=point_coords)
     rename_dict = dict(
         C="channel",
@@ -224,9 +224,9 @@ def read_cq1_experiment(base_path: pl.Path):
 
         acquisition_meta = ome_types.from_xml(tiff.ome_metadata)
 
-        # Given a string like W14(C2R2),A1,F1, picks out the loc index (14) and field idx
+        # Given a string like W14(C2R2),A1,F1, picks out the region index (14) and field idx
         regex = re.compile(
-            r"W(?P<loc_idx>\d+)\,A(?P<unknown>\d+)\,F(?P<field_idx>\d+)")
+            r"W(?P<region_idx>\d+)\,A(?P<unknown>\d+)\,F(?P<field_idx>\d+)")
 
         for series in tiff.series[1:]: # skip the first image, which is metadata
 
@@ -236,9 +236,9 @@ def read_cq1_experiment(base_path: pl.Path):
             search = regex.search(series.name)
 
             if search is None: 
-                raise ValueError(f"Couldn't find loc index in {series.name}")
+                raise ValueError(f"Couldn't find region index in {series.name}")
 
-            loc_idx = int(search.group("loc_idx")) - 1 # 1-indexed in the name, 0-indexed in the array
+            region_idx = int(search.group("region_idx")) - 1 # 1-indexed in the name, 0-indexed in the array
             field_idx = int(search.group("field_idx")) - 1
 
             try:

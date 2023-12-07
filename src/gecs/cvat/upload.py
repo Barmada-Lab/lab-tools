@@ -133,13 +133,13 @@ def prep_experiment(
 @click.argument("project_name", type=str)
 @click.argument("experiment_base", type=click.Path(exists=True, file_okay=False, path_type=pl.Path))
 @click.option("--channels", type=str, default="", help="comma-separated list of channels to include")
-@click.option("--composite", is_flag=True, default=False, help="composites channels if set, else uploads each channel separately")
+@click.option("--composite", is_flag=True, default=False, help="composite channels if set, else uploads each channel separately")
 @click.option("--mip", is_flag=True, default=False, help="apply MIP to each z-stack")
 @click.option("--dims", type=click.Choice(["XY", "TXY", "CXY", "ZXY"]), default="XY", help="dims of uploaded stacks")
 @click.option("--experiment-type", type=click.Choice(["legacy", "legacy-icc", "lux", "nd2s"]), default="lux", help="experiment type")
 @click.option("--rescale", type=float, default=0.1, 
               help="rescales images by stretching the range of their values to be bounded by the given percentile range, e.g. a value of 1 will rescale an image so that 0 1st percentile and 255 is the 99th percentile")
-@click.option("--samples-per-loc", type=int, default=-1, help="number of fields to upload per loc")
+@click.option("--samples-per-region", type=int, default=-1, help="number of fields to upload per region")
 def cli_entry(
     project_name: str, 
     experiment_base: pl.Path, 
@@ -149,7 +149,7 @@ def cli_entry(
     dims: str, 
     experiment_type: str,
     rescale: float,
-    samples_per_loc: int):
+    samples_per_region: int):
 
     dask_client = Client(n_workers=1)
     print(dask_client.dashboard_link)
@@ -182,35 +182,39 @@ def cli_entry(
         for collection in collections:
             match dims:
                 case "XY":
-                    assert {*collection.dims} == {"field", "channel", "x", "y", "rgb"}, collection.dims
-                    sample = collection.field if samples_per_loc == -1 else random.sample([field for field in collection.field], samples_per_loc)
-                    for field in sample:
-                        arr = collection.sel(field=field)
-                        label = f"{field.values}"
-                        stage_and_upload(client, project_id, label, stage_single_frame(arr)) # type: ignore
+                    assert {*collection.dims} == {"region", "field", "channel", "x", "y", "rgb"}, collection.dims
+                    for region in collection.region:
+                        region_arr = collection.sel(region=region).load()
+                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection.field], samples_per_region)
+                        for field in sample:
+                            arr = collection.sel(field=field)
+                            label = f"{field.values}"
+                            stage_and_upload(client, project_id, label, stage_single_frame(arr)) # type: ignore
 
                 case "TXY":
                     collection = collection.squeeze()
-                    assert {*collection.dims} == {"loc", "field", "t", "x", "y", "rgb"}, collection.dims
-                    for loc in collection.loc:
-                        loc_arr = collection.sel(loc=loc).load()
-                        sample = collection.field if samples_per_loc == -1 else random.sample([field for field in collection.field], samples_per_loc)
+                    assert {*collection.dims} == {"region", "field", "t", "x", "y", "rgb"}, collection.dims
+                    for region in collection.region:
+                        region_arr = collection.sel(region=region).load()
+                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection.field], samples_per_region)
                         for field in sample:
-                            arr = loc_arr.sel(field=field)
-                            label = f"{loc.values}_{field.values}"
+                            arr = region_arr.sel(field=field)
+                            label = f"{region.values}_{field.values}"
                             stage_and_upload(client, project_id, label, stage_t_stack(arr)) # type: ignore
 
                 case "CXY":
-                    assert {*collection.dims} == {"field", "channel", "x", "y", "rgb"}, collection.dims
-                    sample = collection.field if samples_per_loc == -1 else random.sample([field for field in collection.field], samples_per_loc)
-                    for field in sample:
-                        arr = collection.sel(field=field).load()
-                        label = f"{field.values}"
-                        stage_and_upload(client, project_id, label, stage_channel_stack(arr)) # type: ignore
+                    assert {*collection.dims} == {"region", "field", "channel", "x", "y", "rgb"}, collection.dims
+                    for region in collection.region:
+                        region_arr = collection.sel(region=region).load()
+                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection.field], samples_per_region)
+                        for field in sample:
+                            arr = region_arr.sel(field=field)
+                            label = f"{region.values}_{field.values}"
+                            stage_and_upload(client, project_id, label, stage_channel_stack(arr)) # type: ignore
 
                 case "ZXY":
                     assert {*collection.dims} == {"field", "z", "x", "y", "rgb"}, collection.dims
-                    sample = collection.field if samples_per_loc == -1 else random.sample([field for field in collection.field], samples_per_loc)
+                    sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection.field], samples_per_region)
                     for field in sample:
                         arr = collection.sel(field=field)
                         label = f"{field.values}"
