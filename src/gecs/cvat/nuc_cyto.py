@@ -52,14 +52,13 @@ def enumerate_rois(client: Client, project_id: int):
         task_name = task_meta.name
         yield task_name, frame_names, labelled_arr
 
-def colocalize_rois(roi_img1, roi_img2) -> list[tuple[int, int]]:
-    correlates = []
-    intersection = roi_img1 * roi_img2
-    for iid in np.unique(intersection[np.where(intersection != 0)]):
-        for i1_id in np.unique(roi_img1[np.where(intersection == iid)]):
-            for i2_id in np.unique(roi_img2[np.where(intersection == iid)]):
-                correlates.append((i1_id, i2_id))
-    return sorted(correlates)
+# creates one-to-one mapping of nuclei to soma, based on maximum overlap
+def colocalize_rois(nuc_rois, soma_rois):
+    for nuc_id in np.unique(nuc_rois[np.nonzero(nuc_rois)]):
+        nuc_mask = nuc_rois == nuc_id
+        soma_id_contents = soma_rois[nuc_mask][np.nonzero(soma_rois[nuc_mask])]
+        soma_id = np.argmax(np.bincount(soma_id_contents))
+        yield (nuc_id, soma_id)
 
 def measure_nuc_cyto_ratio(
         client: Client, 
@@ -75,12 +74,12 @@ def measure_nuc_cyto_ratio(
 
         tokens = task_name.split("_")
         # need different formatting depending on experiment........
-        loc = "_".join(tokens[:-1])
-        collection_name = loc
+        region = "_".join(tokens[:-1])
+        collection_name = region
         collection = collections[collection_name]
         field = tokens[-1]
-        # collection_name = loc
-        intensity_arr = collection.sel(loc=loc, field=int(field))
+        # collection_name = region
+        intensity_arr = collection.sel(region=region, field=int(field))
 
         ### END MANUALLY EDITABLE SECTION
 
