@@ -79,7 +79,7 @@ def measure_nuc_cyto_ratio(
         collection = collections[collection_name]
         field = tokens[-1]
         # collection_name = region
-        intensity_arr = collection.sel(region=region, field=int(field))
+        intensity_arr = collection.sel(region=region, field=field)
 
         ### END MANUALLY EDITABLE SECTION
 
@@ -111,6 +111,9 @@ def measure_nuc_cyto_ratio(
         nuc_df = pd.DataFrame.from_records(nuclear_measurements)
 
         for channel in measurement_channels:
+            if channel not in intensity_arr.channel.values: # sometimes these collections are inhomogenous and don't contain all the channels we're interested in
+                continue
+
             field_intensity_arr = intensity_arr.sel(channel=channel).values
 
             # measure cyto
