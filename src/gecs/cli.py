@@ -6,7 +6,6 @@ from trogon import tui
 from .preprocessing.composite import cli_entry as composite
 from .preprocessing.sns import cli_entry as sns
 from .preprocessing.flatfield import cli_entry as flatfield
-from .preprocessing.project import cli_entry as mip
 
 from .analysis.survival import cli_entry as survival
 
@@ -28,7 +27,6 @@ def preprocess():
 preprocess.add_command(composite)
 preprocess.add_command(sns)
 preprocess.add_command(flatfield)
-preprocess.add_command(mip)
 
 @cli.group()
 def analyze():
