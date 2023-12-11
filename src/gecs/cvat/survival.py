@@ -5,12 +5,10 @@ from lifelines import CoxPHFitter
 import click
 import matplotlib.pyplot as plt
 from cvat_sdk import make_client, Client
-from skimage.measure import regionprops
 import pandas as pd
 from tqdm import tqdm
 
 from ..settings import settings
-from .upload import prep_experiment
 
 def extract_survival_result(track) -> dict[str, Any]:
     points = track.shapes

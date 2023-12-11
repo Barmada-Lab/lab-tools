@@ -7,7 +7,7 @@ from itertools import product
 
 import click
 from dask.distributed import Client, wait
-from lifelines import CoxPHFitter, KaplanMeierFitter
+from lifelines import CoxPHFitter
 import numpy as np
 import pandas as pd
 from scipy.ndimage import gaussian_filter1d
