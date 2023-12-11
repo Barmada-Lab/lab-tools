@@ -15,7 +15,10 @@ import tifffile
 import click
 import tqdm
 
-from .. import experiments
+from gecs.io.legacy_loader import read_legacy_experiment, read_legacy_icc_experiment
+from gecs.io.lux_loader import read_lux_experiment
+from gecs.io.nd2_loader import read_nd2 as read_nd2
+
 from .. import display
 from ..settings import settings
 
@@ -98,13 +101,13 @@ def prep_experiment(
         dims: str = "XY"):
     match experiment_type:
         case "legacy":
-            experiment = experiments.read_legacy_experiment(experiment_base).intensity
+            experiment = read_legacy_experiment(experiment_base).intensity
         case "legacy-icc":
-            experiment = experiments.read_legacy_icc_experiment(experiment_base, fillna=False).intensity
+            experiment = read_legacy_icc_experiment(experiment_base, fillna=False).intensity
         case "lux":
-            experiment = experiments.read_lux_experiment(experiment_base).intensity
+            experiment = read_lux_experiment(experiment_base).intensity
         case "nd2s":
-            experiment = experiments.read_nd2(experiment_base).intensity
+            experiment = read_nd2(experiment_base).intensity
         case _:
             raise ValueError(f"Unknown experiment type {experiment_type}")
 
