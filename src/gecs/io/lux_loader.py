@@ -3,9 +3,10 @@ import pathlib as pl
 import dask.array as da
 import xarray as xr
 
+from ..experiment import Axes
 from . import ioutils
 
-def read_lux_experiment(base: pl.Path, fillna: bool = True):
+def load_lux(base: pl.Path, fillna: bool = True) -> xr.Dataset:
     timepoint_tags = sorted([int(path.name.replace("T","")) for path in base.glob("raw_imgs/*")])
     region_tags = set()
     field_tags = set()
@@ -35,7 +36,7 @@ def read_lux_experiment(base: pl.Path, fillna: bool = True):
                     fields.append(img)
                 regions.append(da.stack(fields))
             timepoints.append(da.stack(regions))
-        channels.append(da.stack(timepoints).rechunk((-1,1,1,-1,-1)))
+        channels.append(da.stack(timepoints)) #.rechunk((-1,1,1,-1,-1))) # type: ignore
     plate = da.stack(channels)
 
     region_coords = [region.replace("well_","") for region in region_tags]
@@ -46,14 +47,21 @@ def read_lux_experiment(base: pl.Path, fillna: bool = True):
         data_vars=dict(
             intensity = xr.DataArray(
                 plate,
-                dims=("channel", "t", "region", "field", "y", "x"),
+                dims=[Axes.CHANNEL, Axes.TIME, Axes.REGION, Axes.FIELD, Axes.Y, Axes.X],
                 coords={
-                    "channel": channel_coords,
-                    "t": timepoint_tags,
-                    "region": region_coords,
-                    "field": field_coords,
+                    Axes.CHANNEL: channel_coords,
+                    Axes.TIME: timepoint_tags,
+                    Axes.REGION: region_coords,
+                    Axes.FIELD: field_coords,
                 }
-            )
+            ).chunk({
+                Axes.CHANNEL: -1,
+                Axes.TIME: -1,
+                Axes.REGION: 1,
+                Axes.FIELD: 1,
+                Axes.Y: -1,
+                Axes.X: -1,
+            }),
         )
     )
 

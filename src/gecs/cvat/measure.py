@@ -10,6 +10,7 @@ import click
 
 from ..settings import settings
 from .upload import prep_experiment
+from gecs.experiment import ExperimentType
 
 import pathlib as pl
 
@@ -96,14 +97,14 @@ def measure_2d(
 @click.option("--channels", type=str, default="", help="comma-separated list of channels to measure")
 @click.option("--mip", is_flag=True, default=False, help="apply MIP to each z-stack")
 @click.option("--dims", type=click.Choice(["XY", "TXY", "CXY", "ZXY"]), default="XY", help="dims of uploaded stacks")
-@click.option("--experiment-type", type=click.Choice(["lux", "nd2s"]), default="lux", help="experiment type")
+@click.option("--experiment-type", type=click.Choice(ExperimentType.__members__), callback=lambda c, p, v: getattr(ExperimentType, v) if v else None, help="experiment type") # type: ignore
 def cli_entry(
     project_name: str, 
     experiment_base: pl.Path, 
     channels: str, 
     mip: bool,
     dims: str, 
-    experiment_type: str):
+    experiment_type: ExperimentType):
 
     channel_list = channels.split(",")
     if channel_list == [""]:

@@ -17,10 +17,11 @@ import xarray as xr
 import tqdm
 from PIL import Image
 
-from gecs.io.lux_loader import read_lux_experiment
-from gecs.io.legacy_loader import read_legacy_experiment
+from gecs.io.lux_loader import load_lux
+from gecs.io.legacy_loader import load_legacy
 from gecs.display import stitch, illumination_correction, clahe, rescale_intensity
 from gecs.segmentation import annotate_segmentation, segment_clahe
+from gecs.experiment import Axes
 
 def slurm_cluster(scratch: pl.Path):
     @contextmanager
@@ -160,9 +161,9 @@ def gfp_method(
 
             print(f"dashboard: {client.dashboard_link}")
 
-            corrected = illumination_correction(intensity, ["t","y","x"])
+            corrected = illumination_correction(intensity, [Axes.TIME, Axes.Y, Axes.X])
             clahed = clahe(corrected)
-            rescaled = rescale_intensity(clahed, ["y","x"], out_range=np.float64)
+            rescaled = rescale_intensity(clahed, [Axes.Y,Axes.X], out_range=np.float64)
             labeled = segment_clahe(rescaled, str(model_loc))
             try:
                 xr.Dataset({
@@ -198,7 +199,7 @@ def cli_entry(
         mode: str,
         model_loc: pl.Path):
 
-    experiment = read_legacy_experiment(experiment_base) if legacy else read_lux_experiment(experiment_base)
+    experiment = load_legacy(experiment_base) if legacy else load_lux(experiment_base)
     if (experiment_base / "wells.csv").exists():
         well_csv = experiment_base / "wells.csv"
     else:

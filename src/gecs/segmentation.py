@@ -10,6 +10,8 @@ import dask.array as da
 import xarray as xr
 import numpy as np
 
+from .experiment import Axes
+
 def segment_logmaxed_stack(
         arr: xr.DataArray, 
         min_dia: int = 20):
@@ -23,8 +25,8 @@ def segment_logmaxed_stack(
     return xr.apply_ufunc(
         _segment_logmaxed_stack,
         arr,
-        input_core_dims=[["t","y","x"]],
-        output_core_dims=[["t","y","x"]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
+        output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         dask_gufunc_kwargs=dict(),
         output_dtypes=[bool],
         dask="parallelized",
@@ -44,9 +46,9 @@ def annotate_segmentation(
         _annotate_segmentation,
         raw,
         segmented,
-        input_core_dims=[["y","x"],["y","x"]],
-        output_core_dims=[["y","x","rgb"]],
-        dask_gufunc_kwargs=dict(output_sizes={"rgb": 3}),
+        input_core_dims=[[Axes.Y, Axes.X],[Axes.Y, Axes.X]],
+        output_core_dims=[[Axes.Y, Axes.X, Axes.RGB]],
+        dask_gufunc_kwargs=dict(output_sizes={Axes.RGB: 3}),
         output_dtypes=[np.uint8],
         dask="parallelized",
         vectorize=True)
@@ -72,10 +74,10 @@ def annotate_labelled_segmentation(
         _annotate_segmentation,
         raw,
         segmented,
-        input_core_dims=[["y","x"],["y","x"]],
-        output_core_dims=[["y","x","rgb"]],
+        input_core_dims=[[Axes.Y, Axes.X],[Axes.Y, Axes.X]],
+        output_core_dims=[[Axes.Y, Axes.X, Axes.RGB]],
         dask_gufunc_kwargs=dict(
-            output_sizes={"rgb": 3}, 
+            output_sizes={Axes.RGB: 3}, 
             ),
         output_dtypes=[np.uint8],
         dask="parallelized",
@@ -87,8 +89,8 @@ def label(segmented: xr.DataArray):
     return xr.apply_ufunc(
         _label,
         segmented,
-        input_core_dims=[["t","y","x"]],
-        output_core_dims=[["t","y","x"]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
+        output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         output_dtypes=[int],
         dask="parallelized",
         vectorize=True)
@@ -115,8 +117,8 @@ def segment_clahe(arr: xr.DataArray, model_path: str):
     return xr.apply_ufunc(
         _segment_clahe,
         arr,
-        input_core_dims=[["t", "y", "x"]],
-        output_core_dims=[["t", "y", "x"]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
+        output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         output_dtypes=[int],
         dask="parallelized",
         vectorize=True)

@@ -14,12 +14,14 @@ import xarray as xr
 import tifffile
 import click
 
-from gecs.io.legacy_loader import read_legacy_experiment, read_legacy_icc_experiment
-from gecs.io.lux_loader import read_lux_experiment
-from gecs.io.nd2_loader import read_nd2
+from gecs.io.legacy_loader import load_legacy, load_legacy_icc
+from gecs.io.lux_loader import load_lux
+from gecs.io.nd2_loader import load_nd2
 
 from .. import display
 from ..settings import settings
+from gecs.experiment import Axes, ExperimentType
+from gecs.io.loader import load_experiment
 
 @curry
 def stage_single_frame(arr: xr.DataArray, label: str, tmpdir: pl.Path) -> list[pl.Path]:
@@ -30,8 +32,8 @@ def stage_single_frame(arr: xr.DataArray, label: str, tmpdir: pl.Path) -> list[p
 @curry
 def stage_t_stack(arr: xr.DataArray, label: str, tmpdir: pl.Path) -> list[pl.Path]:
     images = []
-    for t in arr.t:
-        frame = arr.sel(t=t)
+    for t in arr[Axes.TIME]:
+        frame = arr.sel({Axes.TIME: t})
         outpath = pl.Path(tmpdir) / f"{label}_{t.values}.tif"
         tifffile.imwrite(outpath, frame)
         images.append(outpath)
@@ -40,8 +42,8 @@ def stage_t_stack(arr: xr.DataArray, label: str, tmpdir: pl.Path) -> list[pl.Pat
 @curry
 def stage_channel_stack(arr: xr.DataArray, label:str, tmpdir: pl.Path) -> list[pl.Path]:
     images = []
-    for c in arr.channel:
-        frame = arr.sel(channel=c)
+    for c in arr[Axes.CHANNEL]:
+        frame = arr.sel({Axes.CHANNEL: c})
         outpath = pl.Path(tmpdir) / f"{label}_{c.values}.tif"
         tifffile.imwrite(outpath, frame)
         images.append(outpath)
@@ -50,8 +52,8 @@ def stage_channel_stack(arr: xr.DataArray, label:str, tmpdir: pl.Path) -> list[p
 @curry
 def stage_z_stack(arr: xr.DataArray, label:str, tmpdir: pl.Path) -> list[pl.Path]:
     images = []
-    for z in arr.channel:
-        frame = arr.sel(z=z)
+    for z in arr[Axes.Z]:
+        frame = arr.sel({Axes.Z: z})
         outpath = pl.Path(tmpdir) / f"{label}_{z.values}.tif"
         tifffile.imwrite(outpath, frame)
         images.append(outpath)
@@ -92,33 +94,22 @@ def prep_experiment(
         experiment_base: pl.Path, 
         mip: bool, 
         composite: bool, 
-        experiment_type: str, 
+        experiment_type: ExperimentType, 
         rescale: float, 
         channels: list[str] | None, 
-        apply_psuedocolor: bool = True,
-        to_8bit: bool = True,
-        dims: str = "XY"):
-    match experiment_type:
-        case "legacy":
-            experiment = read_legacy_experiment(experiment_base).intensity
-        case "legacy-icc":
-            experiment = read_legacy_icc_experiment(experiment_base, fillna=False).intensity
-        case "lux":
-            experiment = read_lux_experiment(experiment_base).intensity
-        case "nd2s":
-            experiment = read_nd2(experiment_base).intensity
-        case _:
-            raise ValueError(f"Unknown experiment type {experiment_type}")
+        apply_psuedocolor: bool = True):
+    
+    experiment = load_experiment(experiment_base, experiment_type, fillna=False).intensity
 
     attrs = experiment.attrs
 
     if channels is not None:
-        experiment = experiment.sel(channel=channels)
+        experiment = experiment.sel({Axes.CHANNEL: channels})
 
     if mip:
-        if "z" not in experiment.dims:
+        if Axes.Z not in experiment.dims:
             raise ValueError("MIP requested but no z-dimension found")
-        experiment = experiment.max(dim="z")
+        experiment = experiment.max(dim=Axes.Z)
 
     if apply_psuedocolor:
         experiment = display.apply_psuedocolor(experiment.assign_attrs(attrs))
@@ -126,9 +117,9 @@ def prep_experiment(
     if composite:
         if "channel" not in experiment.dims:
             warnings.warn("Composite requested but no channel dimension found; ignoring")
-        experiment = experiment.mean(dim="channel")
+        experiment = experiment.mean(dim=Axes.CHANNEL)
 
-    experiment = display.rescale_intensity(experiment, ["y", "x"], in_percentile=(rescale, 100-rescale), out_range="uint8")
+    experiment = display.rescale_intensity(experiment, [Axes.Y, Axes.X], in_percentile=(rescale, 100-rescale), out_range="uint8")
     return experiment
 
 @click.command("upload")
@@ -138,7 +129,7 @@ def prep_experiment(
 @click.option("--composite", is_flag=True, default=False, help="composite channels if set, else uploads each channel separately")
 @click.option("--mip", is_flag=True, default=False, help="apply MIP to each z-stack")
 @click.option("--dims", type=click.Choice(["XY", "TXY", "CXY", "ZXY"]), default="XY", help="dims of uploaded stacks")
-@click.option("--experiment-type", type=click.Choice(["legacy", "legacy-icc", "lux", "nd2s"]), default="lux", help="experiment type")
+@click.option("--experiment-type", type=click.Choice(ExperimentType.__members__), callback=lambda c, p, v: getattr(ExperimentType, v) if v else None, help="experiment type") # type: ignore
 @click.option("--rescale", type=float, default=0.1, 
               help="rescales images by stretching the range of their values to be bounded by the given percentile range, e.g. a value of 1 will rescale an image so that 0 1st percentile and 255 is the 99th percentile")
 @click.option("--samples-per-region", type=int, default=-1, help="number of fields to upload per region")
@@ -149,7 +140,7 @@ def cli_entry(
     composite: bool,
     mip: bool,
     dims: str, 
-    experiment_type: str,
+    experiment_type: ExperimentType,
     rescale: float,
     samples_per_region: int):
 
@@ -186,40 +177,42 @@ def cli_entry(
                 case "XY":
                     assert {*collection.dims} == {"region", "field", "channel", "x", "y", "rgb"}, collection.dims
                     for region in collection.region:
-                        region_arr = collection.sel(region=region).load()
-                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection.field], samples_per_region)
+                        region_arr = collection.sel({Axes.REGION: region}).load()
+                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
                         for field in sample:
-                            arr = collection.sel(field=field)
+                            arr = region_arr.sel({Axes.FIELD: field})
                             label = f"{field.values}"
                             stage_and_upload(client, project_id, label, stage_single_frame(arr)) # type: ignore
 
                 case "TXY":
                     assert {*collection.dims} == {"region", "field", "t", "x", "y", "rgb"}, collection.dims
                     for region in collection.region:
-                        region_arr = collection.sel(region=region).load()
-                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection.field], samples_per_region)
+                        region_arr = collection.sel({Axes.REGION: region}).load()
+                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
                         for field in sample:
-                            arr = region_arr.sel(field=field)
+                            arr = region_arr.sel({Axes.FIELD: field})
                             label = f"{region.values}_{field.values}"
                             stage_and_upload(client, project_id, label, stage_t_stack(arr)) # type: ignore
 
                 case "CXY":
                     assert {*collection.dims} == {"region", "field", "channel", "x", "y", "rgb"}, collection.dims
                     for region in collection.region:
-                        region_arr = collection.sel(region=region).load()
-                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection.field], samples_per_region)
+                        region_arr = collection.sel({Axes.REGION: region}).load()
+                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
                         for field in sample:
-                            arr = region_arr.sel(field=field)
+                            arr = region_arr.sel({Axes.FIELD: field})
                             label = f"{region.values}_{field.values}"
                             stage_and_upload(client, project_id, label, stage_channel_stack(arr)) # type: ignore
 
                 case "ZXY":
-                    assert {*collection.dims} == {"field", "z", "x", "y", "rgb"}, collection.dims
-                    sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection.field], samples_per_region)
-                    for field in sample:
-                        arr = collection.sel(field=field)
-                        label = f"{field.values}"
-                        stage_and_upload(client, project_id, label, stage_z_stack(arr)) # type: ignore
+                    assert {*collection.dims} == {"region", "field", "z", "x", "y", "rgb"}, collection.dims
+                    for region in collection.region:
+                        region_arr = collection.sel({Axes.REGION: region}).load()
+                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
+                        for field in sample:
+                            arr = region_arr.sel({Axes.FIELD: field})
+                            label = f"{field.values}"
+                            stage_and_upload(client, project_id, label, stage_z_stack(arr)) # type: ignore
 
                 case _:
                     raise ValueError(f"Unknown dims {dims}")
