@@ -2,6 +2,8 @@ import numpy as np
 import xarray as xr
 from skimage import filters # type: ignore
 
+from .experiment import Axes
+
 def logmax_filter2d(
         arr: xr.DataArray, 
         min_sigma: float = 14, 
@@ -19,8 +21,8 @@ def logmax_filter2d(
     return xr.apply_ufunc(
         _logmax_filter2d,
         arr,
-        input_core_dims=[["y","x"]],
-        output_core_dims=[["y","x"]],
+        input_core_dims=[[Axes.Y, Axes.X]],
+        output_core_dims=[[Axes.Y, Axes.X]],
         dask="parallelized",
         vectorize=True)
 
@@ -41,7 +43,7 @@ def logmax_filter3d(
     return xr.apply_ufunc(
         _logmax_filter3d,
         arr,
-        input_core_dims=[["t", "y","x"]],
-        output_core_dims=[["t", "y","x"]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
+        output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         dask="parallelized",
         vectorize=True)

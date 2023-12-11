@@ -6,7 +6,9 @@ import pandas as pd
 import xarray as xr
 import numpy as np
 
-def rescale_intensity(arr: xr.DataArray, dims: list[str], **kwargs):
+from gecs.experiment import Axes
+
+def rescale_intensity(arr: xr.DataArray, dims: list[Axes], **kwargs):
     def _rescale_intensity(frame, in_percentile: tuple[int,int] | None = None, **kwargs):
         if in_percentile is not None:
             l, h = np.percentile(frame, in_percentile)
@@ -33,8 +35,8 @@ def clahe(arr: xr.DataArray):
     return xr.apply_ufunc(
         _clahe,
         arr,
-        input_core_dims=[["y","x"]],
-        output_core_dims=[["y","x"]],
+        input_core_dims=[[Axes.Y, Axes.X]],
+        output_core_dims=[[Axes.Y, Axes.X]],
         vectorize=True,
         dask="parallelized")
 
@@ -75,14 +77,14 @@ def apply_psuedocolor(arr: xr.DataArray):
         _rgb, 
         arr,
         arr.channel,
-        input_core_dims=[["y","x"], []], 
-        output_core_dims=[["y","x","rgb"]],
-        dask_gufunc_kwargs=dict(output_sizes={"rgb": 3}),
+        input_core_dims=[[Axes.Y, Axes.X], []], 
+        output_core_dims=[[Axes.Y, Axes.X, Axes.RGB]],
+        dask_gufunc_kwargs=dict(output_sizes={Axes.RGB: 3}),
         output_dtypes=[np.uint8],
         vectorize=True, 
         dask="parallelized")
     
-    return rgb.transpose(..., "rgb")
+    return rgb.transpose(..., Axes.RGB)
 
 def illumination_correction(arr: xr.DataArray, dims: list[str]):
     assert "x" in dims and "y" in dims, "x and y dimensions must be specified"
@@ -103,15 +105,20 @@ def illumination_correction(arr: xr.DataArray, dims: list[str]):
 
 def stitch(arr: xr.DataArray, trim: float = 0.05):
     # TODO: arrange tiles correctly
-    trimmed = arr.sel(
-        y=slice(int(arr.y.size * trim), int(arr.y.size * (1 - trim))), 
-        x=slice(int(arr.x.size * trim), int(arr.x.size * (1 - trim))))
-    field_dim = np.sqrt(arr.field.size).astype(int)
+    trimmed = arr.sel({
+        Axes.Y: slice(int(arr[Axes.Y].size * trim), int(arr[Axes.Y].size * (1 - trim))), 
+        Axes.X: slice(int(arr[Axes.X].size * trim), int(arr[Axes.X].size * (1 - trim)))
+    })
+    field_dim = np.sqrt(arr[Axes.FIELD].size).astype(int)
     mi = pd.MultiIndex.from_product(
         (range(field_dim), range(field_dim)), names=["fx", "fy"])
-    mindex_coords = xr.Coordinates.from_pandas_multiindex(mi,"field")
-    trimmed = trimmed.assign_coords(mindex_coords).unstack("field")
+    mindex_coords = xr.Coordinates.from_pandas_multiindex(mi,Axes.FIELD)
+    trimmed = trimmed.assign_coords(mindex_coords).unstack(Axes.FIELD)
 
-    x_stitched = xr.concat(trimmed.transpose("fx", ..., "y", "x")[::-1], dim="y")
-    stitched = xr.concat(x_stitched.transpose("fy", ..., "x", "y")[::-1], dim="x")
-    return stitched.drop(["fx", "fy"]).chunk(dict(t=-1, y=-1, x=-1))
+    x_stitched = xr.concat(trimmed.transpose("fx", ..., Axes.Y, Axes.X)[::-1], dim=Axes.Y)
+    stitched = xr.concat(x_stitched.transpose("fy", ..., Axes.X, Axes.Y)[::-1], dim=Axes.X)
+    return stitched.drop(["fx", "fy"]).chunk({
+        Axes.TIME: -1,
+        Axes.Y: -1,
+        Axes.X: -1,
+    })

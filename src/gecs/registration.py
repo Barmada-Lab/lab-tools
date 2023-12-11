@@ -4,6 +4,8 @@ from largestinteriorrectangle import lir
 import numpy as np
 from pystackreg import StackReg
 
+from .experiment import Axes
+
 def register(arr: xr.DataArray):
     def _register(stack):
         sr = StackReg(StackReg.RIGID_BODY)
@@ -12,8 +14,8 @@ def register(arr: xr.DataArray):
     return xr.apply_ufunc(
         _register,
         arr,
-        input_core_dims=[["t","y","x"]],
-        output_core_dims=[["t","tmat_y","tmat_x"]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
+        output_core_dims=[[Axes.TIME,"tmat_y","tmat_x"]],
         dask_gufunc_kwargs=dict(
             output_sizes={"tmat_y": 3, "tmat_x": 3}, 
             ),
@@ -35,10 +37,10 @@ def min_bb(arr: xr.DataArray, tmats: xr.DataArray):
     return xr.apply_ufunc(
         _min_bb,
         tmats,
-        input_core_dims=[["t", "tmat_y","tmat_x"]],
-        output_core_dims=[["t", "y", "x"]],
+        input_core_dims=[[Axes.TIME, "tmat_y","tmat_x"]],
+        output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         dask_gufunc_kwargs=dict(
-            output_sizes={"y": shape[0], "x": shape[1]},
+            output_sizes={Axes.Y: shape[0], Axes.X: shape[1]},
             ),
         output_dtypes=[bool],
         dask="parallelized",
@@ -54,8 +56,8 @@ def mask_bb(arr: xr.DataArray, mask: xr.DataArray):
         _mask_bb,
         arr,
         mask,
-        input_core_dims=[["t","y","x"],["t","y","x"]],
-        output_core_dims=[["t","y","x"]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X],[Axes.TIME, Axes.Y, Axes.X]],
+        output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         dask="parallelized",
         vectorize=True)
 
@@ -70,8 +72,8 @@ def _transform_float(arr: xr.DataArray, tmats: xr.DataArray):
         _transform,
         arr,
         tmats,
-        input_core_dims=[["t","y","x"],["t", "tmat_y", "tmat_x"]],
-        output_core_dims=[["t","y","x"]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X],[Axes.TIME, "tmat_y", "tmat_x"]],
+        output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         dask="parallelized",
         output_dtypes=[np.float64],
         vectorize=True)
@@ -85,8 +87,8 @@ def _transform_bool(arr: xr.DataArray, tmats: xr.DataArray):
         _transform,
         arr,
         tmats,
-        input_core_dims=[["t","y","x"],["t", "tmat_y", "tmat_x"]],
-        output_core_dims=[["t","y","x"]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X],[Axes.TIME, "tmat_y", "tmat_x"]],
+        output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         dask="parallelized",
         output_dtypes=[bool],
         vectorize=True)
@@ -100,8 +102,8 @@ def _transform_int(arr: xr.DataArray, tmats: xr.DataArray):
         _transform,
         arr,
         tmats,
-        input_core_dims=[["t","y","x"],["t", "tmat_y", "tmat_x"]],
-        output_core_dims=[["t","y","x"]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X],[Axes.TIME, "tmat_y", "tmat_x"]],
+        output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         dask="parallelized",
         output_dtypes=[int],
         vectorize=True)

@@ -1,12 +1,14 @@
 import pathlib as pl
 from itertools import product
 
-from . import ioutils
 import dask.array as da
 import xarray as xr
 import numpy as np
 
-def read_legacy_experiment(base: pl.Path, fillna: bool = True):
+from ..experiment import Axes
+from . import ioutils
+
+def load_legacy(base: pl.Path, fillna: bool = True) -> xr.Dataset:
     timepoint_tags = sorted({int(path.name.replace("T","")) for path in base.glob("raw_imgs/*/*")})
     region_tags = set()
     field_id_tags = set()
@@ -42,21 +44,28 @@ def read_legacy_experiment(base: pl.Path, fillna: bool = True):
                     fields.append(img)
                 regions.append(da.stack(fields))
             timepoints.append(da.stack(regions))
-        channels.append(da.stack(timepoints).rechunk((-1,1,1,-1,-1)))
+        channels.append(da.stack(timepoints))
     plate = da.stack(channels)
 
     dataset = xr.Dataset(
         data_vars=dict(
             intensity = xr.DataArray(
                 plate,
-                dims=["channel", "t", "region", "field", "y", "x"],
+                dims=[Axes.CHANNEL, Axes.TIME, Axes.REGION, Axes.FIELD, Axes.Y, Axes.X],
                 coords={
-                    "channel": channel_tags,
-                    "t": timepoint_tags,
-                    "region": region_tags,
-                    "field": field_tags,
+                    Axes.CHANNEL: channel_tags,
+                    Axes.TIME: timepoint_tags,
+                    Axes.REGION: region_tags,
+                    Axes.FIELD: field_tags,
                 }
-            )
+            ).chunk({
+                Axes.CHANNEL: -1, 
+                Axes.TIME: -1, 
+                Axes.REGION: 1, 
+                Axes.FIELD: 1, 
+                Axes.Y: -1, 
+                Axes.X: -1
+            })
         )
     )
 
@@ -65,6 +74,15 @@ def read_legacy_experiment(base: pl.Path, fillna: bool = True):
 
     return dataset
 
-def read_legacy_icc_experiment(base_path: pl.Path, fillna: bool = True):
-    experiment = read_legacy_experiment(base_path, fillna=fillna)
-    return experiment.rename(t="region")
+def load_legacy_icc(base_path: pl.Path, fillna: bool = True) -> xr.Dataset:
+    experiment = load_legacy(base_path, fillna=fillna).squeeze(Axes.REGION, drop=True)
+    renamed = experiment.rename({Axes.TIME: Axes.REGION})
+    return renamed.assign_coords(
+            {Axes.REGION: renamed[Axes.REGION].astype(str)}
+        ).chunk({
+            Axes.CHANNEL: -1, 
+            Axes.REGION: 1, 
+            Axes.FIELD: 1, 
+            Axes.Y: -1, 
+            Axes.X: -1
+        })

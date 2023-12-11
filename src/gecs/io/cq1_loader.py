@@ -10,6 +10,8 @@ import numpy as np
 import ome_types
 import tifffile
 
+from ..experiment import Axes
+
 def read_series(img):
     try:
         arr = img.asarray()
@@ -20,7 +22,7 @@ def read_series(img):
         arr[:] = np.nan
         return arr
 
-def read_cq1_experiment(base_path: pl.Path):
+def load_cq1(base_path: pl.Path) -> xr.Dataset:
 
     ome_tiff = base_path / "MeasurementResults.ome.tif"
     with tifffile.TiffFile(ome_tiff) as tiff:
@@ -60,6 +62,10 @@ def read_cq1_experiment(base_path: pl.Path):
                     dask.delayed(read_series)(series), series.shape, dtype=np.float32),
                 dims=axes,
                 coords={
-                    "channel": channels
+                    Axes.CHANNEL: channels
                 }
             )
+
+
+    # we have to wait to get more data to finish this func
+    return xr.Dataset()
