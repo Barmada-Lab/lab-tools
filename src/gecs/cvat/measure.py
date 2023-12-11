@@ -3,7 +3,6 @@ import pathlib as pl
 from cvat_sdk import make_client, Client
 from tqdm import tqdm
 from skimage.measure import regionprops
-import napari
 import pandas as pd
 import xarray as xr
 import numpy as np
