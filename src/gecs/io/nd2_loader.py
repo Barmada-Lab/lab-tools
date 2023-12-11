@@ -1,6 +1,5 @@
 import pathlib as pl
 
-import xarray as xr
 import nd2
 
 def read_nd2(path: pl.Path):

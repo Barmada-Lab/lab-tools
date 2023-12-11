@@ -13,11 +13,10 @@ from toolz import curry
 import xarray as xr
 import tifffile
 import click
-import tqdm
 
 from gecs.io.legacy_loader import read_legacy_experiment, read_legacy_icc_experiment
 from gecs.io.lux_loader import read_lux_experiment
-from gecs.io.nd2_loader import read_nd2 as read_nd2
+from gecs.io.nd2_loader import read_nd2
 
 from .. import display
 from ..settings import settings
@@ -195,7 +194,6 @@ def cli_entry(
                             stage_and_upload(client, project_id, label, stage_single_frame(arr)) # type: ignore
 
                 case "TXY":
-                    collection = collection.squeeze()
                     assert {*collection.dims} == {"region", "field", "t", "x", "y", "rgb"}, collection.dims
                     for region in collection.region:
                         region_arr = collection.sel(region=region).load()
