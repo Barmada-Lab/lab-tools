@@ -17,7 +17,8 @@ import xarray as xr
 import tqdm
 from PIL import Image
 
-from gecs.experiments import read_lux_experiment, read_legacy_experiment
+from gecs.io.lux_loader import read_lux_experiment
+from gecs.io.legacy_loader import read_legacy_experiment
 from gecs.display import stitch, illumination_correction, clahe, rescale_intensity
 from gecs.segmentation import annotate_segmentation, segment_clahe
 
@@ -63,7 +64,7 @@ def write_survival_results(output_dir: pl.Path, labeled: xr.DataArray, well_csv:
     counts = cellcounts.groupby(["well", "time"]).sum()
     death_rows = []
     for well in cellcounts.well.unique():
-        trend = counts.loc[well,]["count"]
+        trend = counts.loc[well,]["count"] #type: ignore
         smoothed = gaussian_filter1d(trend, sigma=1.5)
         diff = np.diff(smoothed)
         for idx, deaths in enumerate(diff):
