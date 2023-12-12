@@ -76,7 +76,7 @@ def apply_psuedocolor(arr: xr.DataArray):
     rgb = xr.apply_ufunc(
         _rgb, 
         arr,
-        arr.channel,
+        arr[Axes.CHANNEL],
         input_core_dims=[[Axes.Y, Axes.X], []], 
         output_core_dims=[[Axes.Y, Axes.X, Axes.RGB]],
         dask_gufunc_kwargs=dict(output_sizes={Axes.RGB: 3}),
@@ -87,7 +87,7 @@ def apply_psuedocolor(arr: xr.DataArray):
     return rgb.transpose(..., Axes.RGB)
 
 def illumination_correction(arr: xr.DataArray, dims: list[str]):
-    assert "x" in dims and "y" in dims, "x and y dimensions must be specified"
+    assert Axes.X in dims and Axes.Y in dims, "x and y dimensions must be specified"
     assert len(dims) == 3, "Must provide a third dimension to iterate over"
     def _illumination_correction(stack):
         basic = BaSiC(stack)

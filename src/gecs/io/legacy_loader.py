@@ -70,7 +70,7 @@ def load_legacy(base: pl.Path, fillna: bool = True) -> xr.Dataset:
     )
 
     if fillna:
-        dataset = dataset.ffill("t").bfill("t").ffill("field").bfill("field")
+        dataset = dataset.ffill(Axes.TIME).bfill(Axes.TIME).ffill(Axes.FIELD).bfill(Axes.FIELD)
 
     return dataset
 
