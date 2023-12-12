@@ -50,7 +50,11 @@ def write_survival_results(output_dir: pl.Path, labeled: xr.DataArray, well_csv:
     count_rows = []
     for well, field in product(labeled.well, labeled.field):
         for t in labeled.t:
-            frame = labeled.sel(well=well, field=field, t=t)
+            frame = labeled.sel({
+                Axes.REGION:well, 
+                Axes.FIELD:field, 
+                Axes.TIME:t
+            })
             count_rows.append({
                 "well": str(well.values),
                 "field": str(field.values),
@@ -120,7 +124,9 @@ def write_annotations(annotated_path: pl.Path, annotated: xr.DataArray, client):
         
     futures = []
     for well in annotated.well:
-        stack = annotated.sel(well=well)
+        stack = annotated.sel({
+            Axes.REGION: well,
+        })
         futures.append(
             client.submit(_write_ts_as_gifs, stack, well.values))
     wait(futures)
@@ -154,7 +160,9 @@ def gfp_method(
         output_dir,
         well_csv: pl.Path | None = None):
 
-    intensity = experiment.intensity.sel(channel="GFP")
+    intensity = experiment.intensity.sel({
+        Axes.CHANNEL: "GFP"
+    })
 
     if not scratch_dir.exists():
         with gpu_cluster() as client:
@@ -180,7 +188,7 @@ def gfp_method(
         labeled = data.labeled
         write_survival_results(output_dir, labeled, well_csv)
 
-        corrected = illumination_correction(intensity, ["t","y","x"]).persist()
+        corrected = illumination_correction(intensity, [Axes.TIME, Axes.Y, Axes.X]).persist()
         annotated = annotate_segmentation(stitch(corrected), stitch(labeled))
         write_annotations(output_dir / "annotated", annotated, client)
 

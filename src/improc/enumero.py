@@ -22,10 +22,14 @@ class NaturalOrderStrEnum(str, enum.Enum):
             return self._order > other._order
         return NotImplemented
 
+    def __lt__(self, other):
+        return not self.__gt__(other)
+
     def __eq__(self, other):
         if self.__class__ is other.__class__:
             return self._order == other._order
         return NotImplemented
+
 
     def __hash__(self):
         return id(self)

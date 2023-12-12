@@ -20,41 +20,45 @@ from gecs.io.nd2_loader import load_nd2
 
 from .. import display
 from ..settings import settings
-from gecs.experiment import Axes, ExperimentType
+from gecs.experiment import Axes, ExperimentType, coord_selector
 from gecs.io.loader import load_experiment
 
 @curry
-def stage_single_frame(arr: xr.DataArray, label: str, tmpdir: pl.Path) -> list[pl.Path]:
-    outpath = pl.Path(tmpdir) / f"{label}.tif"
+def stage_single_frame(arr: xr.DataArray, tmpdir: pl.Path) -> list[pl.Path]:
+    selector_label = coord_selector(arr)
+    outpath = pl.Path(tmpdir) / f"{selector_label}.tif"
     tifffile.imwrite(outpath, arr)
     return [outpath]
 
 @curry
-def stage_t_stack(arr: xr.DataArray, label: str, tmpdir: pl.Path) -> list[pl.Path]:
+def stage_t_stack(arr: xr.DataArray, tmpdir: pl.Path) -> list[pl.Path]:
     images = []
     for t in arr[Axes.TIME]:
         frame = arr.sel({Axes.TIME: t})
-        outpath = pl.Path(tmpdir) / f"{label}_{t.values}.tif"
+        selector_label = coord_selector(frame)
+        outpath = pl.Path(tmpdir) / f"{selector_label}.tif"
         tifffile.imwrite(outpath, frame)
         images.append(outpath)
     return images
 
 @curry
-def stage_channel_stack(arr: xr.DataArray, label:str, tmpdir: pl.Path) -> list[pl.Path]:
+def stage_channel_stack(arr: xr.DataArray, tmpdir: pl.Path) -> list[pl.Path]:
     images = []
     for c in arr[Axes.CHANNEL]:
         frame = arr.sel({Axes.CHANNEL: c})
-        outpath = pl.Path(tmpdir) / f"{label}_{c.values}.tif"
+        selector_label = coord_selector(frame)
+        outpath = pl.Path(tmpdir) / f"{selector_label}.tif"
         tifffile.imwrite(outpath, frame)
         images.append(outpath)
     return images
 
 @curry
-def stage_z_stack(arr: xr.DataArray, label:str, tmpdir: pl.Path) -> list[pl.Path]:
+def stage_z_stack(arr: xr.DataArray, tmpdir: pl.Path) -> list[pl.Path]:
     images = []
     for z in arr[Axes.Z]:
         frame = arr.sel({Axes.Z: z})
-        outpath = pl.Path(tmpdir) / f"{label}_{z.values}.tif"
+        selector_label = coord_selector(frame)
+        outpath = pl.Path(tmpdir) / f"{selector_label}.tif"
         tifffile.imwrite(outpath, frame)
         images.append(outpath)
     return images
@@ -84,10 +88,10 @@ def stage_and_upload(
         client, 
         project_id: int, 
         label: str, 
-        stage_arr: Callable[[str, pl.Path], list[pl.Path]]):
+        stage_arr: Callable[[pl.Path], list[pl.Path]]):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = pl.Path(tmpdir)
-        images = stage_arr(label, tmpdir)
+        images = stage_arr(tmpdir)
         upload(client, project_id, label, images)
 
 def prep_experiment(
@@ -115,7 +119,7 @@ def prep_experiment(
         experiment = display.apply_psuedocolor(experiment.assign_attrs(attrs))
 
     if composite:
-        if "channel" not in experiment.dims:
+        if Axes.CHANNEL not in experiment.dims:
             warnings.warn("Composite requested but no channel dimension found; ignoring")
         experiment = experiment.mean(dim=Axes.CHANNEL)
 
@@ -175,44 +179,44 @@ def cli_entry(
         for collection in collections:
             match dims:
                 case "XY":
-                    assert {*collection.dims} == {"region", "field", "channel", "x", "y", "rgb"}, collection.dims
-                    for region in collection.region:
+                    assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.CHANNEL, Axes.X, Axes.Y, Axes.RGB}, collection.dims
+                    for region in collection[Axes.REGION]:
                         region_arr = collection.sel({Axes.REGION: region}).load()
                         sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
                         for field in sample:
                             arr = region_arr.sel({Axes.FIELD: field})
-                            label = f"{field.values}"
-                            stage_and_upload(client, project_id, label, stage_single_frame(arr)) # type: ignore
+                            selector_label = coord_selector(arr)
+                            stage_and_upload(client, project_id, selector_label, stage_single_frame(arr)) # type: ignore
 
                 case "TXY":
-                    assert {*collection.dims} == {"region", "field", "t", "x", "y", "rgb"}, collection.dims
-                    for region in collection.region:
+                    assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.TIME, Axes.X, Axes.Y, Axes.RGB}, collection.dims
+                    for region in collection[Axes.REGION]:
                         region_arr = collection.sel({Axes.REGION: region}).load()
                         sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
                         for field in sample:
                             arr = region_arr.sel({Axes.FIELD: field})
-                            label = f"{region.values}_{field.values}"
-                            stage_and_upload(client, project_id, label, stage_t_stack(arr)) # type: ignore
+                            selector_label = coord_selector(arr)
+                            stage_and_upload(client, project_id, selector_label, stage_t_stack(arr)) # type: ignore
 
                 case "CXY":
-                    assert {*collection.dims} == {"region", "field", "channel", "x", "y", "rgb"}, collection.dims
-                    for region in collection.region:
+                    assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.CHANNEL, Axes.X, Axes.Y, Axes.RGB}, collection.dims
+                    for region in collection[Axes.REGION]:
                         region_arr = collection.sel({Axes.REGION: region}).load()
                         sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
                         for field in sample:
                             arr = region_arr.sel({Axes.FIELD: field})
-                            label = f"{region.values}_{field.values}"
-                            stage_and_upload(client, project_id, label, stage_channel_stack(arr)) # type: ignore
+                            selector_label = coord_selector(arr)
+                            stage_and_upload(client, project_id, selector_label, stage_channel_stack(arr)) # type: ignore
 
                 case "ZXY":
-                    assert {*collection.dims} == {"region", "field", "z", "x", "y", "rgb"}, collection.dims
-                    for region in collection.region:
+                    assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.Z, Axes.X, Axes.Y, Axes.RGB}, collection.dims
+                    for region in collection[Axes.REGION]:
                         region_arr = collection.sel({Axes.REGION: region}).load()
                         sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
                         for field in sample:
                             arr = region_arr.sel({Axes.FIELD: field})
-                            label = f"{field.values}"
-                            stage_and_upload(client, project_id, label, stage_z_stack(arr)) # type: ignore
+                            selector_label = coord_selector(arr)
+                            stage_and_upload(client, project_id, selector_label, stage_z_stack(arr)) # type: ignore
 
                 case _:
                     raise ValueError(f"Unknown dims {dims}")

@@ -1,10 +1,6 @@
 import click
 from trogon import tui
 
-from .preprocessing.composite import cli_entry as composite
-from .preprocessing.sns import cli_entry as sns
-from .preprocessing.flatfield import cli_entry as flatfield
-
 from .analysis.survival import cli_entry as survival
 
 from .cvat.survival import cli_entry as cvat_survival
@@ -17,14 +13,6 @@ from .cvat.nuc_cyto import cli_entry as cvat_nuc_cyto
 @click.pass_context
 def cli(ctx):
     ctx.ensure_object(dict)
-
-@cli.group()
-def preprocess():
-    pass
-
-preprocess.add_command(composite)
-preprocess.add_command(sns)
-preprocess.add_command(flatfield)
 
 @cli.group()
 def analyze():
