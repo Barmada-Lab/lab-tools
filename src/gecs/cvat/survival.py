@@ -45,6 +45,8 @@ def analyze_survival(
         well_df["well"] = well_df["Vertex"].str[-3:]
         well_df = well_df.drop(columns=["Vertex"])
         df = df.merge(well_df, on="well")
+        condition_counts = df.groupby("Condition").size()
+        df["Condition"] += " (n=" + df["Condition"].map(condition_counts).astype(str) + ")"
         cph = CoxPHFitter()
         cph.fit(df.drop(columns="well"), duration_col="time", event_col="dead", strata="Condition")
         cph.baseline_cumulative_hazard_.plot(
