@@ -10,6 +10,7 @@ import tifffile
 def read_tiff_delayed(shape: tuple, reshape: bool = True):
     def read(path: pl.Path) -> np.ndarray:
         try:
+            print(f"Reading {path}")
             img = tifffile.imread(path)
             if img.shape != shape and reshape:
                 img = transform.resize(

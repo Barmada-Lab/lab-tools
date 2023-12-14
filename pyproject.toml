@@ -43,7 +43,7 @@ dask-image = "^2023.8.1"
 dask-jobqueue = "^0.8.2"
 bokeh = "^3.3.0"
 torch = {version = "^2.1.0+cpu", source = "pytorch-cpu"}
-cellpose = "^2.2.3"
+cellpose = {extras=["gui"], version = "^2.2.3"}
 bottleneck = "^1.3.7"
 nd2 = "^0.8.0"
 toolz = "^0.12.0"

@@ -7,7 +7,7 @@ import tempfile
 import random
 
 from cvat_sdk import make_client 
-from cvat_sdk.models import TaskWriteRequest
+from cvat_sdk.models import TaskWriteRequest, ProjectWriteRequest
 from dask.distributed import Client, wait
 from toolz import curry
 import xarray as xr
@@ -100,10 +100,12 @@ def prep_experiment(
         composite: bool, 
         experiment_type: ExperimentType, 
         rescale: float, 
-        channels: list[str] | None, 
-        apply_psuedocolor: bool = True):
+        channels: str | list[str] | None, 
+        apply_psuedocolor: bool = True,
+        to_uint8: bool = True,
+        fillna: bool = True):
     
-    experiment = load_experiment(experiment_base, experiment_type, fillna=False).intensity
+    experiment = load_experiment(experiment_base, experiment_type, fillna).intensity
 
     attrs = experiment.attrs
 
@@ -123,13 +125,16 @@ def prep_experiment(
             warnings.warn("Composite requested but no channel dimension found; ignoring")
         experiment = experiment.mean(dim=Axes.CHANNEL)
 
-    experiment = display.rescale_intensity(experiment, [Axes.Y, Axes.X], in_percentile=(rescale, 100-rescale), out_range="uint8")
+    if to_uint8:
+        experiment = display.rescale_intensity(experiment, [Axes.Y, Axes.X], in_percentile=(rescale, 100-rescale), out_range="uint8")
+
     return experiment
 
 @click.command("upload")
 @click.argument("project_name", type=str)
 @click.argument("experiment_base", type=click.Path(exists=True, file_okay=False, path_type=pl.Path))
 @click.option("--channels", type=str, default="", help="comma-separated list of channels to include")
+@click.option("--tp", type=int, default=-1, help="timepoint to upload; if -1, uploads all timepoints")
 @click.option("--composite", is_flag=True, default=False, help="composite channels if set, else uploads each channel separately")
 @click.option("--mip", is_flag=True, default=False, help="apply MIP to each z-stack")
 @click.option("--dims", type=click.Choice(["XY", "TXY", "CXY", "ZXY"]), default="XY", help="dims of uploaded stacks")
@@ -137,26 +142,32 @@ def prep_experiment(
 @click.option("--rescale", type=float, default=0.1, 
               help="rescales images by stretching the range of their values to be bounded by the given percentile range, e.g. a value of 1 will rescale an image so that 0 1st percentile and 255 is the 99th percentile")
 @click.option("--samples-per-region", type=int, default=-1, help="number of fields to upload per region")
+@click.option("--no-fillna", is_flag=True, default=False, help="don't interpolate NaNs")
 def cli_entry(
     project_name: str, 
     experiment_base: pl.Path, 
     channels: str, 
+    tp: int,
     composite: bool,
     mip: bool,
     dims: str, 
     experiment_type: ExperimentType,
     rescale: float,
-    samples_per_region: int):
+    samples_per_region: int,
+    no_fillna: bool):
 
     dask_client = Client(n_workers=1)
     print(dask_client.dashboard_link)
 
     channel_list = None if channels == "" else channels.split(",")
+    if channel_list is not None and len(channel_list) == 1:
+        channel_list = channel_list[0]
 
     if experiment_type == "nd2s":
-        collections = [prep_experiment(nd2_file, mip, composite, experiment_type, rescale, channel_list, True) for nd2_file in experiment_base.glob("**/*.nd2")]
+        collections = [prep_experiment(nd2_file, mip, composite, experiment_type, rescale, channel_list, apply_psuedocolor=True, fillna=not no_fillna) for nd2_file in experiment_base.glob("**/*.nd2")]
     else:
-        collections = [prep_experiment(experiment_base, mip, composite, experiment_type, rescale, channel_list, True)]
+        collections = [prep_experiment(experiment_base, mip, composite, experiment_type, rescale, channel_list, apply_psuedocolor=True, fillna=not no_fillna)]
+    
         
     with make_client(
         host=settings.cvat_url,
@@ -170,19 +181,26 @@ def cli_entry(
         client.organization_slug = org_slug
         
         (data, _) = client.api_client.projects_api.list(search=project_name)
-        assert data is not None and len(data.results) > 0, \
-            f"No project matching {project_name} in {org_slug}; create a project in the webapp first"
+        if data is None or len(data.results) == 0:
+            (project, _) = client.api_client.projects_api.create(
+                ProjectWriteRequest(name=project_name) # type: ignore
+            )
 
-        project = next(filter(lambda x: x.name == project_name, data.results))
+        else:
+            project = next(filter(lambda x: x.name == project_name, data.results))
+
         project_id = project.id
 
         for collection in collections:
+            if tp != -1:
+                collection = collection.sel({Axes.TIME: tp})
+            print(collection)
             match dims:
                 case "XY":
-                    assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.CHANNEL, Axes.X, Axes.Y, Axes.RGB}, collection.dims
+                    assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.X, Axes.Y, Axes.RGB}, collection.dims
                     for region in collection[Axes.REGION]:
-                        region_arr = collection.sel({Axes.REGION: region}).load()
-                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
+                        region_arr = collection.sel({Axes.REGION: region})
+                        sample = collection[Axes.FIELD] if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
                         for field in sample:
                             arr = region_arr.sel({Axes.FIELD: field})
                             selector_label = coord_selector(arr)
@@ -191,8 +209,8 @@ def cli_entry(
                 case "TXY":
                     assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.TIME, Axes.X, Axes.Y, Axes.RGB}, collection.dims
                     for region in collection[Axes.REGION]:
-                        region_arr = collection.sel({Axes.REGION: region}).load()
-                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
+                        sample = collection[Axes.FIELD] if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
+                        region_arr = collection.sel({Axes.REGION: region})
                         for field in sample:
                             arr = region_arr.sel({Axes.FIELD: field})
                             selector_label = coord_selector(arr)
@@ -201,8 +219,8 @@ def cli_entry(
                 case "CXY":
                     assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.CHANNEL, Axes.X, Axes.Y, Axes.RGB}, collection.dims
                     for region in collection[Axes.REGION]:
-                        region_arr = collection.sel({Axes.REGION: region}).load()
-                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
+                        region_arr = collection.sel({Axes.REGION: region})
+                        sample = collection[Axes.FIELD] if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
                         for field in sample:
                             arr = region_arr.sel({Axes.FIELD: field})
                             selector_label = coord_selector(arr)
@@ -211,8 +229,8 @@ def cli_entry(
                 case "ZXY":
                     assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.Z, Axes.X, Axes.Y, Axes.RGB}, collection.dims
                     for region in collection[Axes.REGION]:
-                        region_arr = collection.sel({Axes.REGION: region}).load()
-                        sample = collection.field if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
+                        region_arr = collection.sel({Axes.REGION: region})
+                        sample = collection[Axes.FIELD] if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
                         for field in sample:
                             arr = region_arr.sel({Axes.FIELD: field})
                             selector_label = coord_selector(arr)
