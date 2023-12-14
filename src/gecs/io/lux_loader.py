@@ -36,7 +36,7 @@ def load_lux(base: pl.Path, fillna: bool = True) -> xr.Dataset:
                     fields.append(img)
                 regions.append(da.stack(fields))
             timepoints.append(da.stack(regions))
-        channels.append(da.stack(timepoints)) #.rechunk((-1,1,1,-1,-1))) # type: ignore
+        channels.append(da.stack(timepoints))
     plate = da.stack(channels)
 
     region_coords = [region.replace("well_","") for region in region_tags]
@@ -56,7 +56,7 @@ def load_lux(base: pl.Path, fillna: bool = True) -> xr.Dataset:
                 }
             ).chunk({
                 Axes.CHANNEL: -1,
-                Axes.TIME: -1,
+                Axes.TIME: 1,
                 Axes.REGION: 1,
                 Axes.FIELD: 1,
                 Axes.Y: -1,

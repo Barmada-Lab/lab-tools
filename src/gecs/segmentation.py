@@ -95,7 +95,7 @@ def label(segmented: xr.DataArray):
         dask="parallelized",
         vectorize=True)
 
-def segment_clahe(arr: xr.DataArray, model_path: str):
+def segment_clahed_imgs(arr: xr.DataArray, model_path: str):
     """ This will likely work only on a single node cluster """
     """ It is an absolute bastard of a hack """
     """ But it works """

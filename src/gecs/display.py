@@ -100,6 +100,7 @@ def illumination_correction(arr: xr.DataArray, dims: list[str]):
         arr,
         input_core_dims=[dims],
         output_core_dims=[dims],
+        dask_gufunc_kwargs=dict(allow_rechunk=True),
         vectorize=True,
         dask="parallelized")
 

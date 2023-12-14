@@ -10,7 +10,7 @@ import click
 
 from ..settings import settings
 from .upload import prep_experiment
-from gecs.experiment import ExperimentType
+from gecs.experiment import ExperimentType, Axes, parse_selector, select_arr
 
 def rle_to_mask(rle: list[int], width: int, height:int)->np.ndarray:
     decoded = [0] * (width * height) # create bitmap container
@@ -34,8 +34,8 @@ def get_labelled_arr(anno_table, length, height, width):
         rle = list(map(int, shape.points))
         left, top, right, bottom = rle[-4:]
         patch_height, patch_width = (bottom - top + 1, right - left +1)
-        patch_mask = rle_to_mask(rle[:-4], patch_width, patch_height).astype(int) * id
-        channel_stack_mask[frame, top:bottom+1, left:right+1] += patch_mask
+        patch_mask = rle_to_mask(rle[:-4], patch_width, patch_height)
+        channel_stack_mask[frame, top:bottom+1, left:right+1][patch_mask] = id
     return channel_stack_mask
 
 def enumerate_rois(client: Client, project_id: int):
@@ -59,7 +59,7 @@ def colocalize_rois(nuc_rois, soma_rois):
         nuc_mask = nuc_rois == nuc_id
         soma_id_contents = soma_rois[nuc_mask][np.nonzero(soma_rois[nuc_mask])]
         # sometimes there are no soma corresponding to the nuclear mask
-        if soma_id_contents.size > 0:
+        if soma_id_contents.size == 0:
             continue
         soma_id = np.argmax(np.bincount(soma_id_contents))
         yield (nuc_id, soma_id)
@@ -76,12 +76,11 @@ def measure_nuc_cyto_ratio_nd2s(
     df = pd.DataFrame()
     for task_name, frame_names, labelled_arr in enumerate_rois(client, project_id):
 
-        tokens = task_name.split("_")
+        tokens = task_name.replace("-","_").split("_")
         region = "_".join(tokens[:-1])
-        collection_name = region
-        collection = collections[collection_name]
+        collection = collections[region]
         field = tokens[-1]
-        intensity_arr = collection.sel(region=region, field=field)
+        intensity_arr = collection.isel({Axes.REGION: 0}).sel({Axes.FIELD: field})
 
         channels = [name.split(".")[0].split("_")[-1] for name in frame_names]
         nuc_idx = channels.index(nuc_channel)
@@ -111,20 +110,21 @@ def measure_nuc_cyto_ratio_nd2s(
         nuc_df = pd.DataFrame.from_records(nuclear_measurements)
 
         for channel in measurement_channels:
-            if channel not in intensity_arr.channel.values: # sometimes these collections are inhomogenous and don't contain all the channels we're interested in
+            if channel not in intensity_arr[Axes.CHANNEL].values: # sometimes these collections are inhomogenous and don't contain all the channels we're interested in
                 continue
 
-            field_intensity_arr = intensity_arr.sel(channel=channel).values
+            field_intensity_arr = intensity_arr.sel({Axes.CHANNEL: channel}).values
 
             # measure cyto
             for props in regionprops(cyto_mask, intensity_image=field_intensity_arr):
-                cyto_df.loc[cyto_df["id"] == props.label, f"{channel}_intensity_sum"] = props.image_intensity.sum()
-                cyto_df.loc[cyto_df["id"] == props.label, f"{channel}_intensity_mean"] = props.image_intensity.mean()
+                mask = cyto_mask == props.label
+                cyto_df.loc[cyto_df["id"] == props.label, f"{channel}_intensity_mean"] = field_intensity_arr[mask].mean()
 
             # measure nuc
             for props in regionprops(nuclear_mask, intensity_image=field_intensity_arr):
-                nuc_df.loc[nuc_df["id"] == props.label, f"{channel}_intensity_sum"] = props.image_intensity.sum()
-                nuc_df.loc[nuc_df["id"] == props.label, f"{channel}_intensity_mean"] = props.image_intensity.mean()
+                mask = nuclear_mask == props.label
+                nuc_df.loc[nuc_df["id"] == props.label, f"{channel}_intensity_mean"] = field_intensity_arr[mask].mean()
+
 
         colocalized = dict(colocalize_rois(nuclear_mask, soma_mask))
         nuc_df["id"] = nuc_df["id"].map(colocalized)
@@ -144,17 +144,17 @@ def measure_nuc_cyto_ratio(
 
     df = pd.DataFrame()
     for task_name, frame_names, labelled_arr in enumerate_rois(client, project_id):
-        ### BEGIN MANUALLY EDITABLE SECTION
 
-        tokens = task_name.split("_")
-        # need different formatting depending on experiment........
-        region = tokens[0]
-        field = "_".join(tokens[1:])
-        intensity_arr = collection.sel(region=region, field=field)
+        # NEW WAY, BETTER WAY, BUT DOESN'T WORK WITH OLD EXPERIMENTS :(
+        # selector = parse_selector(task_name)
+        # intensity_arr = collection.sel(selector)
+        # channels = selector[Axes.CHANNEL].tolist()
 
-        ### END MANUALLY EDITABLE SECTION
-
+        # OLD WAY, BAD WAY, BUT WORKS WITH OLD EXPERIMENTS :(
+        region, field1, field2 = task_name.split("_")
+        intensity_arr = collection.sel({Axes.REGION: region, Axes.FIELD: f"{field1}_{field2}"}).load()
         channels = [name.split(".")[0].split("_")[-1] for name in frame_names]
+
         nuc_idx = channels.index(nuc_channel)
         soma_idx = channels.index(soma_channel)
 
@@ -182,20 +182,23 @@ def measure_nuc_cyto_ratio(
         nuc_df = pd.DataFrame.from_records(nuclear_measurements)
 
         for channel in measurement_channels:
-            if channel not in intensity_arr.channel.values: # sometimes these collections are inhomogenous and don't contain all the channels we're interested in
+            if channel not in intensity_arr[Axes.CHANNEL].values: # sometimes these collections are inhomogenous and don't contain all the channels we're interested in
                 continue
 
-            field_intensity_arr = intensity_arr.sel(channel=channel).values
+            field_intensity_arr = intensity_arr.sel({Axes.CHANNEL: channel}).values
+
+            assert cyto_mask.shape == field_intensity_arr.shape, \
+                f"cyto mask and intensity array have different shapes: {cyto_mask.shape} | {field_intensity_arr.shape}"
 
             # measure cyto
             for props in regionprops(cyto_mask, intensity_image=field_intensity_arr):
-                cyto_df.loc[cyto_df["id"] == props.label, f"{channel}_intensity_sum"] = props.image_intensity.sum()
-                cyto_df.loc[cyto_df["id"] == props.label, f"{channel}_intensity_mean"] = props.image_intensity.mean()
+                mask = cyto_mask == props.label
+                cyto_df.loc[cyto_df["id"] == props.label, f"{channel}_intensity_mean"] = field_intensity_arr[mask].mean()
 
             # measure nuc
             for props in regionprops(nuclear_mask, intensity_image=field_intensity_arr):
-                nuc_df.loc[nuc_df["id"] == props.label, f"{channel}_intensity_sum"] = props.image_intensity.sum()
-                nuc_df.loc[nuc_df["id"] == props.label, f"{channel}_intensity_mean"] = props.image_intensity.mean()
+                mask = nuclear_mask == props.label
+                nuc_df.loc[nuc_df["id"] == props.label, f"{channel}_intensity_mean"] = field_intensity_arr[mask].mean()
 
         colocalized = dict(colocalize_rois(nuclear_mask, soma_mask))
         nuc_df["id"] = nuc_df["id"].map(colocalized)
@@ -250,13 +253,11 @@ def cli_entry(
         output_dir.mkdir(exist_ok=True)
 
         # TODO: homogenize collections and put into one array
-        if experiment_type == "nd2s":
-            # for path in experiment_base.glob("**/*.nd2"):
-            #     experiment = prep_experiment(path, mip, False, experiment_type, 0.0, None, False)
-            collections = {nd2_file.name.replace(".nd2",""): prep_experiment(nd2_file, mip, False, experiment_type, 0.0, None, False) for nd2_file in experiment_base.glob("**/*.nd2")}
+        if experiment_type is ExperimentType.ND2:
+            collections = {nd2_file.name.replace(".nd2","").replace("-","_"): prep_experiment(nd2_file, mip, False, experiment_type, 0.0, None, False, False, False) for nd2_file in experiment_base.glob("**/*.nd2")}
             df = measure_nuc_cyto_ratio_nd2s(client, project_id, collections, nuc_channel, soma_channel, channel_list)
             df.to_csv(output_dir / "nuc_cyto_CVAT.csv", index=False)
         else:
-            collections = prep_experiment(experiment_base, mip, False, experiment_type, 0.0, None, False)
+            collections = prep_experiment(experiment_base, mip, False, experiment_type, 0.0, None, False, False, False)
             df = measure_nuc_cyto_ratio(client, project_id, collections, nuc_channel, soma_channel, channel_list)
             df.to_csv(output_dir / "nuc_cyto_CVAT.csv", index=False)

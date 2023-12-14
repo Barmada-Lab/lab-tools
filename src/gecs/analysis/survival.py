@@ -14,14 +14,12 @@ from scipy.ndimage import gaussian_filter1d
 from dask_jobqueue import SLURMCluster
 import matplotlib.pyplot as plt
 import xarray as xr
-import tqdm
 from PIL import Image
 
-from gecs.io.lux_loader import load_lux
-from gecs.io.legacy_loader import load_legacy
+from gecs.io.loader import load_experiment
 from gecs.display import stitch, illumination_correction, clahe, rescale_intensity
-from gecs.segmentation import annotate_segmentation, segment_clahe
-from gecs.experiment import Axes
+from gecs.segmentation import annotate_segmentation, segment_clahed_imgs
+from gecs.experiment import Axes, ExperimentType
 
 def slurm_cluster(scratch: pl.Path):
     @contextmanager
@@ -171,8 +169,8 @@ def gfp_method(
 
             corrected = illumination_correction(intensity, [Axes.TIME, Axes.Y, Axes.X])
             clahed = clahe(corrected)
-            rescaled = rescale_intensity(clahed, [Axes.Y,Axes.X], out_range=np.float64)
-            labeled = segment_clahe(rescaled, str(model_loc))
+            rescaled = rescale_intensity(clahed, [Axes.Y,Axes.X], out_range=np.float32)
+            labeled = segment_clahed_imgs(rescaled, str(model_loc))
             try:
                 xr.Dataset({
                     "labeled": labeled,
@@ -195,19 +193,21 @@ def gfp_method(
 @click.command("survival")
 @click.argument("experiment_base", type=click.Path(exists=True, file_okay=False, path_type=pl.Path))
 @click.argument("scratch", type=click.Path(exists=True, file_okay=False, path_type=pl.Path))
-@click.option("--legacy", is_flag=True, default=False)
 @click.option("--use-slurm", is_flag=True, default=False)
 @click.option("--mode", type=click.Choice(['gfp', 'gedi'], case_sensitive=False))
 @click.option("--model-loc", type=click.Path(exists=True, path_type=pl.Path))
+@click.option("--experiment-type", type=click.Choice(ExperimentType.__members__), callback=lambda c, p, v: getattr(ExperimentType, v) if v else None, help="experiment type") # type: ignore
+@click.option("--no-fillna", is_flag=True, default=False, help="don't interpolate NaNs")
 def cli_entry(
         experiment_base: pl.Path, 
         scratch: pl.Path, 
-        legacy: bool,
         use_slurm: bool, 
         mode: str,
-        model_loc: pl.Path):
+        model_loc: pl.Path,
+        experiment_type: ExperimentType,
+        no_fillna: bool):
 
-    experiment = load_legacy(experiment_base) if legacy else load_lux(experiment_base)
+    experiment = load_experiment(experiment_base, experiment_type, fillna=not no_fillna)
     if (experiment_base / "wells.csv").exists():
         well_csv = experiment_base / "wells.csv"
     else:
@@ -219,5 +219,6 @@ def cli_entry(
     output_dir = experiment_base / "results"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if mode == "gfp":
-        return gfp_method(experiment, gpu_cluster(), cluster_handle, model_loc, scratch_dir, output_dir, well_csv)
+    match mode:
+        case "gfp":
+            return gfp_method(experiment, gpu_cluster(), cluster_handle, model_loc, scratch_dir, output_dir, well_csv)

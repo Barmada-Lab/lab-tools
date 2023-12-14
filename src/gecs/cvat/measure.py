@@ -69,25 +69,26 @@ def measure_2d(
         collection_name = "_".join(tokens[:-1]) + ".nd2"
         collection = collections[collection_name]
         intensity_arr = collection.sel(field=task_name)
-        mask = labelled_arr[0]
+        for rois in labelled_arr:
 
-        field_measurements = []
-        for props in regionprops(mask):
-            field_measurements.append({
-                "id": props.label,
-                "collection": collection_name,
-                "area": props.area,
-            })
-        field_df = pd.DataFrame.from_records(field_measurements)
-        
-        for channel in measurement_channels:
-            field_intensity_arr = intensity_arr.sel(channel=channel).values
+            field_measurements = []
+            for props in regionprops(rois):
+                field_measurements.append({
+                    "id": props.label,
+                    "collection": collection_name,
+                    "area": props.area,
+                })
+            field_df = pd.DataFrame.from_records(field_measurements)
+            
+            for channel in measurement_channels:
+                field_intensity_arr = intensity_arr.sel(channel=channel).values
 
-            for props in regionprops(mask, intensity_image=field_intensity_arr):
-                field_df.loc[field_df["id"] == props.label, f"{channel}_intensity_sum"] = props.image_intensity.sum()
-                field_df.loc[field_df["id"] == props.label, f"{channel}_intensity_std"] = props.image_intensity.std()
-        
-        df = pd.concat((df, field_df))
+                for props in regionprops(rois, intensity_image=field_intensity_arr):
+                    mask = rois == props.label
+                    field_df.loc[field_df["id"] == props.label, f"{channel}_intensity_sum"] = field_intensity_arr[mask].sum()
+                    field_df.loc[field_df["id"] == props.label, f"{channel}_intensity_std"] = field_intensity_arr[mask].std()
+            
+            df = pd.concat((df, field_df))
     
     return df
 
