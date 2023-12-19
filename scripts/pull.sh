@@ -13,7 +13,7 @@ fi
 
 HOST=globus-xfer.arc-ts.umich.edu
 ARCHIVE=/nfs/dataden/umms-sbarmada/experiments
-DESTINATION=/scratch
+DESTINATION=/nfs/turbo/umms-sbarmada/experiments/
 TEMP=/scratch/sbarmada_root/sbarmada0/$USER/dataden
 
 mkdir -p $TEMP
