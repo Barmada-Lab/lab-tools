@@ -5,6 +5,7 @@ from pystackreg import StackReg
 
 from .experiment import Axes
 
+
 def register(arr: xr.DataArray):
     def _register(stack):
         sr = StackReg(StackReg.RIGID_BODY)
@@ -14,12 +15,13 @@ def register(arr: xr.DataArray):
         _register,
         arr,
         input_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
-        output_core_dims=[[Axes.TIME,"tmat_y","tmat_x"]],
+        output_core_dims=[[Axes.TIME, "tmat_y", "tmat_x"]],
         dask_gufunc_kwargs=dict(
-            output_sizes={"tmat_y": 3, "tmat_x": 3}, 
-            ),
+            output_sizes={"tmat_y": 3, "tmat_x": 3},
+        ),
         dask="parallelized",
         vectorize=True)
+
 
 def min_bb(arr: xr.DataArray, tmats: xr.DataArray):
     shape = (arr.y.size, arr.x.size)
@@ -36,14 +38,15 @@ def min_bb(arr: xr.DataArray, tmats: xr.DataArray):
     return xr.apply_ufunc(
         _min_bb,
         tmats,
-        input_core_dims=[[Axes.TIME, "tmat_y","tmat_x"]],
+        input_core_dims=[[Axes.TIME, "tmat_y", "tmat_x"]],
         output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         dask_gufunc_kwargs=dict(
             output_sizes={Axes.Y: shape[0], Axes.X: shape[1]},
-            ),
+        ),
         output_dtypes=[bool],
         dask="parallelized",
         vectorize=True)
+
 
 def mask_bb(arr: xr.DataArray, mask: xr.DataArray):
     def _mask_bb(arr, mask):
@@ -55,42 +58,43 @@ def mask_bb(arr: xr.DataArray, mask: xr.DataArray):
         _mask_bb,
         arr,
         mask,
-        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X],[Axes.TIME, Axes.Y, Axes.X]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X], [Axes.TIME, Axes.Y, Axes.X]],
         output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         dask="parallelized",
         vectorize=True)
-
 
 
 def _transform_float(arr: xr.DataArray, tmats: xr.DataArray):
     def _transform(stack, tmats):
         sr = StackReg(StackReg.RIGID_BODY)
         transformed = sr.transform_stack(stack, tmats=tmats)
-        return transformed 
+        return transformed
     return xr.apply_ufunc(
         _transform,
         arr,
         tmats,
-        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X],[Axes.TIME, "tmat_y", "tmat_x"]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X], [Axes.TIME, "tmat_y", "tmat_x"]],
         output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         dask="parallelized",
         output_dtypes=[np.float64],
         vectorize=True)
 
+
 def _transform_bool(arr: xr.DataArray, tmats: xr.DataArray):
     def _transform(stack, tmats):
         sr = StackReg(StackReg.RIGID_BODY)
         transformed = sr.transform_stack(stack, tmats=tmats)
-        return transformed > 0.5 
+        return transformed > 0.5
     return xr.apply_ufunc(
         _transform,
         arr,
         tmats,
-        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X],[Axes.TIME, "tmat_y", "tmat_x"]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X], [Axes.TIME, "tmat_y", "tmat_x"]],
         output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         dask="parallelized",
         output_dtypes=[bool],
         vectorize=True)
+
 
 def _transform_int(arr: xr.DataArray, tmats: xr.DataArray):
     def _transform(stack, tmats):
@@ -101,11 +105,12 @@ def _transform_int(arr: xr.DataArray, tmats: xr.DataArray):
         _transform,
         arr,
         tmats,
-        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X],[Axes.TIME, "tmat_y", "tmat_x"]],
+        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X], [Axes.TIME, "tmat_y", "tmat_x"]],
         output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         dask="parallelized",
         output_dtypes=[int],
         vectorize=True)
+
 
 def transform(arr: xr.DataArray, tmats: xr.DataArray):
     """ Multiple dispatch? Never heard of it. """

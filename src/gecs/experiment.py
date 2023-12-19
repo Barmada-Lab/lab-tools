@@ -1,9 +1,9 @@
-from enum import unique
 from improc.enumero import NaturalOrderStrEnum
 from toolz import curry
 
 import xarray as xr
 import numpy as np
+
 
 class Axes(NaturalOrderStrEnum):
     REGION = "region"
@@ -15,6 +15,7 @@ class Axes(NaturalOrderStrEnum):
     Z = "z"
     RGB = "rgb"
 
+
 class ExperimentType(NaturalOrderStrEnum):
     LEGACY = "legacy"
     LEGACY_ICC = "legacy-icc"
@@ -22,10 +23,12 @@ class ExperimentType(NaturalOrderStrEnum):
     LUX = "lux"
     CQ1 = "cq1"
 
+
 # ex. field-1|region-B02|channel-GFP:RFP:Cy5|time-1:2:3:4:5:6:7:8:9:10
-FIELD_DELIM = "|" 
+FIELD_DELIM = "|"
 FIELD_VALUE_DELIM = "-"
 VALUE_DELIM = ":"
+
 
 def _fmt_coord_selector_str(label, coord_arr):
     arr = np.atleast_1d(coord_arr)
@@ -33,9 +36,10 @@ def _fmt_coord_selector_str(label, coord_arr):
         for value in arr:
             assert FIELD_DELIM not in value, f"{label} value {value} is invalid; contains a '|'; rename and try again"
             assert FIELD_VALUE_DELIM not in value, f"{label} value {value} is invalid; contains a '-'; rename and try again"
-            assert VALUE_DELIM not in value, f"{label} value {value} is invalid; contains a ':'; rename and try again" 
+            assert VALUE_DELIM not in value, f"{label} value {value} is invalid; contains a ':'; rename and try again"
 
-    return f"{label}{FIELD_VALUE_DELIM}" + VALUE_DELIM.join(map(str,arr))
+    return f"{label}{FIELD_VALUE_DELIM}" + VALUE_DELIM.join(map(str, arr))
+
 
 @curry
 def _parse_field_selector(arr: xr.DataArray | None, selector: str):
@@ -44,7 +48,7 @@ def _parse_field_selector(arr: xr.DataArray | None, selector: str):
         axis = Axes(field_name)
     except ValueError:
         raise ValueError(f"Invalid field name {field_name} in selector {selector}")
-    
+
     if arr is None:
         target_dtype = np.str_
     else:
@@ -57,17 +61,20 @@ def _parse_field_selector(arr: xr.DataArray | None, selector: str):
     else:
         return (axis, field_value_tokens)
 
+
 def coord_selector(arr: xr.DataArray) -> str:
     """Derives a string-formatted selector from an array's coordinates."""
     return FIELD_DELIM.join([
         _fmt_coord_selector_str(label, coord.values) for label, coord in sorted(arr.coords.items())
     ])
 
+
 def parse_selector(selector_str: str) -> dict[Axes, np.ndarray]:
     """Parses a selector string into a dictionary of axes to values"""
-    return dict(map(_parse_field_selector(None), selector_str.split(FIELD_DELIM))) # type: ignore
+    return dict(map(_parse_field_selector(None), selector_str.split(FIELD_DELIM)))  # type: ignore
+
 
 def select_arr(arr: xr.DataArray, selector_str: str) -> xr.DataArray:
     """Selects a subarray from the given array using provided selector"""
-    selector = dict(map(_parse_field_selector(arr), selector_str.split(FIELD_DELIM))) # type: ignore
+    selector = dict(map(_parse_field_selector(arr), selector_str.split(FIELD_DELIM)))  # type: ignore
     return arr.sel(selector)

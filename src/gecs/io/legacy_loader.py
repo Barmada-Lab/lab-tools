@@ -8,6 +8,7 @@ import numpy as np
 from ..experiment import Axes
 from . import ioutils
 
+
 def load_legacy(base: pl.Path, fillna: bool) -> xr.Dataset:
     timepoint_tags = sorted({int(path.name.replace("T","")) for path in base.glob("raw_imgs/*/*")})
     region_tags = set()
@@ -18,7 +19,7 @@ def load_legacy(base: pl.Path, fillna: bool) -> xr.Dataset:
         region, field = path.name.split(".")[0].split("_")
         region_tags.add(region)
         field_id_tags.add(field)
-    
+
     max_field_id = max(map(int, field_id_tags))
     dim = np.sqrt(max_field_id).astype(int)
     field_tags = list(map(lambda x: "_".join(map(str, x)), product(range(dim), range(dim))))
@@ -49,7 +50,7 @@ def load_legacy(base: pl.Path, fillna: bool) -> xr.Dataset:
 
     dataset = xr.Dataset(
         data_vars=dict(
-            intensity = xr.DataArray(
+            intensity=xr.DataArray(
                 plate,
                 dims=[Axes.CHANNEL, Axes.TIME, Axes.REGION, Axes.FIELD, Axes.Y, Axes.X],
                 coords={
@@ -59,11 +60,11 @@ def load_legacy(base: pl.Path, fillna: bool) -> xr.Dataset:
                     Axes.FIELD: field_tags,
                 }
             ).chunk({
-                Axes.CHANNEL: -1, 
-                Axes.TIME: -1, 
-                Axes.REGION: 1, 
-                Axes.FIELD: 1, 
-                Axes.Y: -1, 
+                Axes.CHANNEL: -1,
+                Axes.TIME: -1,
+                Axes.REGION: 1,
+                Axes.FIELD: 1,
+                Axes.Y: -1,
                 Axes.X: -1
             })
         )
@@ -74,8 +75,9 @@ def load_legacy(base: pl.Path, fillna: bool) -> xr.Dataset:
 
     return dataset
 
+
 def load_legacy_icc(base: pl.Path, fillna: bool) -> xr.Dataset:
-    timepoint_tags = sorted({int(path.name.replace("T","")) for path in base.glob("raw_imgs/*/*")})
+    timepoint_tags = sorted({int(path.name.replace("T", "")) for path in base.glob("raw_imgs/*/*")})
     region_tags = set()
     field_id_tags = set()
     channel_tags = set()
@@ -115,21 +117,21 @@ def load_legacy_icc(base: pl.Path, fillna: bool) -> xr.Dataset:
 
     dataset = xr.Dataset(
         data_vars=dict(
-            intensity = xr.DataArray(
+            intensity=xr.DataArray(
                 plate,
                 dims=[Axes.CHANNEL, Axes.REGION, Axes.TIME, Axes.FIELD, Axes.Y, Axes.X],
                 coords={
                     Axes.CHANNEL: channel_tags,
                     Axes.TIME: [0],
-                    Axes.REGION: list(map(str,timepoint_tags)),
+                    Axes.REGION: list(map(str, timepoint_tags)),
                     Axes.FIELD: field_tags,
                 }
             ).chunk({
-                Axes.CHANNEL: -1, 
-                Axes.TIME: 1, 
-                Axes.REGION: 1, 
-                Axes.FIELD: 1, 
-                Axes.Y: -1, 
+                Axes.CHANNEL: -1,
+                Axes.TIME: 1,
+                Axes.REGION: 1,
+                Axes.FIELD: 1,
+                Axes.Y: -1,
                 Axes.X: -1
             })
         )

@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from ..settings import settings
 
+
 def extract_survival_result(track) -> dict[str, Any]:
     points = track.shapes
     for point in points:
@@ -23,11 +24,12 @@ def extract_survival_result(track) -> dict[str, Any]:
         "dead": 0
     }
 
+
 def analyze_survival(
         client: Client,
         project_id: int,
         output_dir: pl.Path,
-        well_csv: pl.Path|None):
+        well_csv: pl.Path | None):
 
     tasks = client.projects.retrieve(project_id).get_tasks()
     rows = []
@@ -60,11 +62,12 @@ def analyze_survival(
     output_csv = output_dir / "survival_CVAT.csv"
     df.to_csv(output_csv, index=False)
 
+
 @click.command("survival")
 @click.argument("project_name")
 @click.argument("output_dir", type=click.Path(path_type=pl.Path))
 @click.option("--well-csv", type=click.Path(path_type=pl.Path), default=None)
-def cli_entry(project_name: str, output_dir: pl.Path, well_csv: pl.Path|None):
+def cli_entry(project_name: str, output_dir: pl.Path, well_csv: pl.Path | None):
     with make_client(
         host=settings.cvat_url,
         credentials=(

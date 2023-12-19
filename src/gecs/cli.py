@@ -14,21 +14,26 @@ from gecs.settings import settings
 
 logging.basicConfig(level=settings.log_level)
 
+
 @tui()
 @click.group()
 @click.pass_context
 def cli(ctx):
     ctx.ensure_object(dict)
 
+
 @cli.group()
 def analyze():
     pass
 
+
 analyze.add_command(survival)
+
 
 @cli.group()
 def cvat():
     pass
+
 
 cvat.add_command(cvat_survival)
 cvat.add_command(cvat_upload)
