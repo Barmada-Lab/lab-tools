@@ -40,8 +40,8 @@ def load_lux(base: pl.Path, fillna: bool = True) -> xr.Dataset:
         channels.append(da.stack(timepoints))
     plate = da.stack(channels)
 
-    region_coords = [region.replace("well_","") for region in region_tags]
-    field_coords = [field.replace("mosaic_","") for field in field_tags]
+    region_coords = [region.replace("well_", "") for region in region_tags]
+    field_coords = [field.replace("mosaic_", "") for field in field_tags]
     channel_coords = [exposure.split("_")[0] for exposure in exposure_tags]
 
     dataset = xr.Dataset(

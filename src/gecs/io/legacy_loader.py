@@ -10,7 +10,7 @@ from . import ioutils
 
 
 def load_legacy(base: pl.Path, fillna: bool) -> xr.Dataset:
-    timepoint_tags = sorted({int(path.name.replace("T","")) for path in base.glob("raw_imgs/*/*")})
+    timepoint_tags = sorted({int(path.name.replace("T", "")) for path in base.glob("raw_imgs/*/*")})
     region_tags = set()
     field_id_tags = set()
     channel_tags = set()
@@ -41,7 +41,7 @@ def load_legacy(base: pl.Path, fillna: bool) -> xr.Dataset:
                 for field in field_id_tags:
                     col = region[1:]
                     path = base / "raw_imgs" / channel / f"T{timepoint}" / f"col_{col}" / f"{region}_{field}.tif"
-                    img = ioutils.read_tiff_toarray(path) 
+                    img = ioutils.read_tiff_toarray(path)
                     fields.append(img)
                 regions.append(da.stack(fields))
             timepoints.append(da.stack(regions))
@@ -86,7 +86,7 @@ def load_legacy_icc(base: pl.Path, fillna: bool) -> xr.Dataset:
         region, field = path.name.split(".")[0].split("_")
         region_tags.add(region)
         field_id_tags.add(field)
-    
+
     max_field_id = max(map(int, field_id_tags))
     dim = np.sqrt(max_field_id).astype(int)
     field_tags = list(map(lambda x: "_".join(map(str, x)), product(range(dim), range(dim))))
@@ -108,7 +108,7 @@ def load_legacy_icc(base: pl.Path, fillna: bool) -> xr.Dataset:
                 for field in field_id_tags:
                     col = region[1:]
                     path = base / "raw_imgs" / channel / f"T{timepoint}" / f"col_{col}" / f"{region}_{field}.tif"
-                    img = ioutils.read_tiff_toarray(path) 
+                    img = ioutils.read_tiff_toarray(path)
                     fields.append(img)
                 regions.append(da.stack(fields))
             timepoints.append(da.stack(regions))
