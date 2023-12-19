@@ -1,6 +1,5 @@
 import warnings
 import xarray as xr
-from largestinteriorrectangle import lir
 import numpy as np
 from pystackreg import StackReg
 

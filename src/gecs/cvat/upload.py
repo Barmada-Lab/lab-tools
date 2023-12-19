@@ -1,10 +1,10 @@
-from itertools import product
 import warnings
 import time
 from typing import Callable
 import pathlib as pl
 import tempfile 
 import random
+import logging
 
 from cvat_sdk import make_client 
 from cvat_sdk.models import TaskWriteRequest, ProjectWriteRequest
@@ -22,6 +22,8 @@ from .. import display
 from ..settings import settings
 from gecs.experiment import Axes, ExperimentType, coord_selector
 from gecs.io.loader import load_experiment
+
+logger = logging.getLogger(__name__)
 
 @curry
 def stage_single_frame(arr: xr.DataArray, tmpdir: pl.Path) -> list[pl.Path]:
@@ -78,10 +80,10 @@ def upload(client, project_id: int, label: str, images: list[pl.Path]):
             return
         except Exception as e:
             if i == 4:
-                print(f"Failed to upload {label} after 5 attempts. Skipping.")
+                logger.error(f"Failed to upload {label} after 5 attempts. Skipping.")
             else:
-                print(f"Error uploading {label}: {e}")
-                print(f"Retrying in {i ** 2} seconds")
+                logger.warn(f"Error uploading {label}: {e}")
+                logger.warn(f"Retrying in {i ** 2} seconds")
                 time.sleep(i ** 2)
 
 def stage_and_upload(
@@ -157,7 +159,7 @@ def cli_entry(
     no_fillna: bool):
 
     dask_client = Client(n_workers=1)
-    print(dask_client.dashboard_link)
+    logger.info(dask_client.dashboard_link)
 
     channel_list = None if channels == "" else channels.split(",")
     if channel_list is not None and len(channel_list) == 1:
@@ -194,7 +196,6 @@ def cli_entry(
         for collection in collections:
             if tp != -1:
                 collection = collection.sel({Axes.TIME: tp})
-            print(collection)
             match dims:
                 case "XY":
                     assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.X, Axes.Y, Axes.RGB}, collection.dims

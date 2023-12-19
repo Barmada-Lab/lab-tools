@@ -1,5 +1,5 @@
 import pathlib as pl
-import warnings
+import logging
 
 from skimage import exposure, transform # type: ignore
 import dask.array as da
@@ -7,10 +7,12 @@ import dask
 import numpy as np
 import tifffile
 
+logger = logging.getLogger(__name__)
+
 def read_tiff_delayed(shape: tuple, reshape: bool = True):
     def read(path: pl.Path) -> np.ndarray:
         try:
-            print(f"Reading {path}")
+            logger.debug(f"Reading {path}")    
             img = tifffile.imread(path)
             if img.shape != shape and reshape:
                 img = transform.resize(
@@ -20,7 +22,7 @@ def read_tiff_delayed(shape: tuple, reshape: bool = True):
                     f"Image shape {img.shape} does not match expected shape {shape}; you can pass reshape=True to resize the image to a standard shape.")
             return exposure.rescale_intensity(img, out_range=np.float32)
         except (ValueError, NameError, FileNotFoundError) as e:
-            warnings.warn(f"Error reading {path}: {e}\nThis field will be filled based on surrounding fields and timepoints.")
+            logger.warning(f"Error reading {path}: {e}\nThis field will be filled based on surrounding fields and timepoints.")
             img = np.zeros(shape, dtype=np.float32)
             img[:] = np.nan
             return img

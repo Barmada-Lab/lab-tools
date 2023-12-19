@@ -5,3 +5,4 @@ dist/
 .mypy_cache/
 **/local.py
 notebooks/**/local
+.vscode/

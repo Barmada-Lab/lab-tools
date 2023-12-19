@@ -6,6 +6,8 @@ USER_CONFIG_HOME = Path.home() / ".config" / "gecs"
 class Settings(BaseSettings):
     app_name: str = "GECS"
 
+    log_level: str = "DEBUG"
+
     cvat_url: str = "http://localhost:8080"
     cvat_username: str = ""
     cvat_password: str = ""
