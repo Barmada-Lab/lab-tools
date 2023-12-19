@@ -1,5 +1,7 @@
-import click
+import logging
+
 from trogon import tui
+import click
 
 from .analysis.survival import cli_entry as survival
 
@@ -7,6 +9,10 @@ from .cvat.survival import cli_entry as cvat_survival
 from .cvat.upload import cli_entry as cvat_upload
 from .cvat.measure import cli_entry as cvat_measure
 from .cvat.nuc_cyto import cli_entry as cvat_nuc_cyto
+
+from gecs.settings import settings
+
+logging.basicConfig(level=settings.log_level)
 
 @tui()
 @click.group()

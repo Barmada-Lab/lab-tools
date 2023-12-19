@@ -1,16 +1,10 @@
-from itertools import product
-import torch
-import pathlib as pl
 from skimage import filters, morphology, exposure, segmentation # type: ignore
 from cellpose.models import CellposeModel
-import dask
 from dask.distributed import Lock
-from dask.graph_manipulation import bind
-import dask.array as da
 import xarray as xr
 import numpy as np
 
-from .experiment import Axes
+from gecs.experiment import Axes
 
 def segment_logmaxed_stack(
         arr: xr.DataArray, 

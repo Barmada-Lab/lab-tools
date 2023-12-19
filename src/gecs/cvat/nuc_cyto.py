@@ -10,10 +10,10 @@ import click
 
 from ..settings import settings
 from .upload import prep_experiment
-from gecs.experiment import ExperimentType, Axes, parse_selector, select_arr
+from gecs.experiment import ExperimentType, Axes
 
 def rle_to_mask(rle: list[int], width: int, height:int)->np.ndarray:
-    decoded = [0] * (width * height) # create bitmap container
+    decoded = [0] * (width * height)  # create bitmap container
     decoded_idx = 0
     value = 0
 

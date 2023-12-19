@@ -1,6 +1,6 @@
 import pathlib as pl
 import shutil
-import csv
+import logging
 from typing import Any, Generator
 from contextlib import contextmanager
 from itertools import product
@@ -20,6 +20,8 @@ from gecs.io.loader import load_experiment
 from gecs.display import stitch, illumination_correction, clahe, rescale_intensity
 from gecs.segmentation import annotate_segmentation, segment_clahed_imgs
 from gecs.experiment import Axes, ExperimentType
+
+logger = logging.getLogger(__name__)
 
 def slurm_cluster(scratch: pl.Path):
     @contextmanager
@@ -49,9 +51,9 @@ def write_survival_results(output_dir: pl.Path, labeled: xr.DataArray, well_csv:
     for well, field in product(labeled.well, labeled.field):
         for t in labeled.t:
             frame = labeled.sel({
-                Axes.REGION:well, 
-                Axes.FIELD:field, 
-                Axes.TIME:t
+                Axes.REGION: well, 
+                Axes.FIELD: field, 
+                Axes.TIME: t
             })
             count_rows.append({
                 "well": str(well.values),
@@ -165,7 +167,7 @@ def gfp_method(
     if not scratch_dir.exists():
         with gpu_cluster() as client:
 
-            print(f"dashboard: {client.dashboard_link}")
+            logger.info(f"dashboard: {client.dashboard_link}")
 
             corrected = illumination_correction(intensity, [Axes.TIME, Axes.Y, Axes.X])
             clahed = clahe(corrected)
@@ -176,7 +178,7 @@ def gfp_method(
                     "labeled": labeled,
                 }).to_zarr(scratch_dir, mode="w")
             except Exception as e:
-                print("Encountered an error while writing to zarr: ", e)
+                logger.error("Encountered an error while writing to zarr: ", e)
                 shutil.rmtree(scratch_dir)
                 return
     
