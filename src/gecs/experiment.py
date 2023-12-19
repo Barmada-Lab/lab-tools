@@ -64,8 +64,10 @@ def _parse_field_selector(arr: xr.DataArray | None, selector: str):
 
 def coord_selector(arr: xr.DataArray) -> str:
     """Derives a string-formatted selector from an array's coordinates."""
+    coords = sorted(arr.coords.items())
+    filtered = filter(lambda coord: coord[0] != Axes.X and coord[0] != Axes.Y and coord[0] != Axes.Z, coords)
     return FIELD_DELIM.join([
-        _fmt_coord_selector_str(label, coord.values) for label, coord in sorted(arr.coords.items())
+        _fmt_coord_selector_str(label, coord.values) for label, coord in filtered
     ])
 
 
