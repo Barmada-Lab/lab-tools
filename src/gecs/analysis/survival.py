@@ -17,11 +17,13 @@ import xarray as xr
 from PIL import Image
 
 from gecs.io.loader import load_experiment
-from gecs.display import stitch, illumination_correction, clahe, rescale_intensity
+from gecs.display import (
+    stitch, illumination_correction, clahe, rescale_intensity)
 from gecs.segmentation import annotate_segmentation, segment_clahed_imgs
 from gecs.experiment import Axes, ExperimentType
 
 logger = logging.getLogger(__name__)
+
 
 def slurm_cluster(scratch: pl.Path):
     @contextmanager
@@ -33,10 +35,10 @@ def slurm_cluster(scratch: pl.Path):
             memory="90 GB",
             interface="ib0",
             local_directory=scratch,
-            scheduler_options= dict(
-                dashboard_address=f"0.0.0.0:0"
+            scheduler_options=dict(
+                dashboard_address="0.0.0.0:0"
             ),
-            worker_extra_args=["--lifetime", "50m", "--lifetime-stagger", "4m"],
+            worker_extra_args=["--lifetime", "50m", "--lifetime-stagger", "4m"]
         )
         cluster.scale(jobs=1)
         client = Client(cluster)
@@ -46,13 +48,17 @@ def slurm_cluster(scratch: pl.Path):
             client.shutdown()
     return _slurm_cluster
 
-def write_survival_results(output_dir: pl.Path, labeled: xr.DataArray, well_csv: pl.Path | None = None):
+
+def write_survival_results(
+        output_dir: pl.Path,
+        labeled: xr.DataArray,
+        well_csv: pl.Path | None = None):
     count_rows = []
     for well, field in product(labeled.well, labeled.field):
         for t in labeled.t:
             frame = labeled.sel({
-                Axes.REGION: well, 
-                Axes.FIELD: field, 
+                Axes.REGION: well,
+                Axes.FIELD: field,
                 Axes.TIME: t
             })
             count_rows.append({
@@ -61,7 +67,7 @@ def write_survival_results(output_dir: pl.Path, labeled: xr.DataArray, well_csv:
                 "time": int(t.values),
                 "count": len(np.unique(frame.values))
             })
-    
+
     cellcounts = pd.DataFrame.from_records(count_rows)
     cellcount_output_path = output_dir / "raw_cell_counts.csv"
     cellcounts.to_csv(cellcount_output_path, index=False)
@@ -69,7 +75,7 @@ def write_survival_results(output_dir: pl.Path, labeled: xr.DataArray, well_csv:
     counts = cellcounts.groupby(["well", "time"]).sum()
     death_rows = []
     for well in cellcounts.well.unique():
-        trend = counts.loc[well,]["count"] #type: ignore
+        trend = counts.loc[well,]["count"]  # type: ignore
         smoothed = gaussian_filter1d(trend, sigma=1.5)
         diff = np.diff(smoothed)
         for idx, deaths in enumerate(diff):
@@ -111,6 +117,7 @@ def write_survival_results(output_dir: pl.Path, labeled: xr.DataArray, well_csv:
         output_fig = output_dir / "CoxPH_baselines.pdf"
         plt.savefig(output_fig, format="pdf")
 
+
 def write_annotations(annotated_path: pl.Path, annotated: xr.DataArray, client):
     annotated_path.mkdir(exist_ok=True)
 
@@ -119,9 +126,10 @@ def write_annotations(annotated_path: pl.Path, annotated: xr.DataArray, client):
         data = np.array(stack)
         frame_0 = Image.fromarray(data[0])
         the_rest = [Image.fromarray(frame) for frame in data[1:]]
-        frame_0.save(path, format='GIF', save_all=True, 
+        frame_0.save(
+            path, format='GIF', save_all=True,
             append_images=the_rest, duration=500, loop=0)
-        
+
     futures = []
     for well in annotated.well:
         stack = annotated.sel({
@@ -130,6 +138,7 @@ def write_annotations(annotated_path: pl.Path, annotated: xr.DataArray, client):
         futures.append(
             client.submit(_write_ts_as_gifs, stack, well.values))
     wait(futures)
+
 
 def local_cluster():
     @contextmanager
@@ -141,6 +150,7 @@ def local_cluster():
             client.shutdown()
     return _local_cluster
 
+
 def gpu_cluster():
     @contextmanager
     def _gpu_cluster() -> Generator[Client, Any, None]:
@@ -151,11 +161,12 @@ def gpu_cluster():
             client.shutdown()
     return _gpu_cluster
 
+
 def gfp_method(
-        experiment: xr.Dataset, 
-        gpu_cluster, 
-        cpu_cluster, 
-        model_loc, 
+        experiment: xr.Dataset,
+        gpu_cluster,
+        cpu_cluster,
+        model_loc,
         scratch_dir,
         output_dir,
         well_csv: pl.Path | None = None):
@@ -171,7 +182,7 @@ def gfp_method(
 
             corrected = illumination_correction(intensity, [Axes.TIME, Axes.Y, Axes.X])
             clahed = clahe(corrected)
-            rescaled = rescale_intensity(clahed, [Axes.Y,Axes.X], out_range=np.float32)
+            rescaled = rescale_intensity(clahed, [Axes.Y, Axes.X], out_range=np.float32)
             labeled = segment_clahed_imgs(rescaled, str(model_loc))
             try:
                 xr.Dataset({
@@ -181,7 +192,7 @@ def gfp_method(
                 logger.error("Encountered an error while writing to zarr: ", e)
                 shutil.rmtree(scratch_dir)
                 return
-    
+
     with cpu_cluster() as client:
 
         data = xr.open_zarr(scratch_dir)
@@ -192,18 +203,20 @@ def gfp_method(
         annotated = annotate_segmentation(stitch(corrected), stitch(labeled))
         write_annotations(output_dir / "annotated", annotated, client)
 
+
 @click.command("survival")
 @click.argument("experiment_base", type=click.Path(exists=True, file_okay=False, path_type=pl.Path))
 @click.argument("scratch", type=click.Path(exists=True, file_okay=False, path_type=pl.Path))
 @click.option("--use-slurm", is_flag=True, default=False)
 @click.option("--mode", type=click.Choice(['gfp', 'gedi'], case_sensitive=False))
 @click.option("--model-loc", type=click.Path(exists=True, path_type=pl.Path))
-@click.option("--experiment-type", type=click.Choice(ExperimentType.__members__), callback=lambda c, p, v: getattr(ExperimentType, v) if v else None, help="experiment type") # type: ignore
+@click.option("--experiment-type", type=click.Choice(ExperimentType.__members__),  # type: ignore
+              callback=lambda c, p, v: getattr(ExperimentType, v) if v else None, help="experiment type")
 @click.option("--no-fillna", is_flag=True, default=False, help="don't interpolate NaNs")
 def cli_entry(
-        experiment_base: pl.Path, 
-        scratch: pl.Path, 
-        use_slurm: bool, 
+        experiment_base: pl.Path,
+        scratch: pl.Path,
+        use_slurm: bool,
         mode: str,
         model_loc: pl.Path,
         experiment_type: ExperimentType,
@@ -214,7 +227,7 @@ def cli_entry(
         well_csv = experiment_base / "wells.csv"
     else:
         well_csv = None
-    
+
     cluster_handle = slurm_cluster(scratch) if use_slurm else local_cluster()
 
     scratch_dir = scratch / f"{experiment_base.name}.zarr"

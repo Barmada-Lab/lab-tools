@@ -1,13 +1,14 @@
 import numpy as np
 import xarray as xr
-from skimage import filters # type: ignore
+from skimage import filters  # type: ignore
 
 from .experiment import Axes
 
+
 def logmax_filter2d(
-        arr: xr.DataArray, 
-        min_sigma: float = 14, 
-        max_sigma: float = 25, 
+        arr: xr.DataArray,
+        min_sigma: float = 14,
+        max_sigma: float = 25,
         n_sigma: int = 3):
     def _logmax_filter2d(frame):
         padding = int(max_sigma)
@@ -26,10 +27,11 @@ def logmax_filter2d(
         dask="parallelized",
         vectorize=True)
 
+
 def logmax_filter3d(
-        arr: xr.DataArray, 
-        min_sigma: float = 14, 
-        max_sigma: float = 25, 
+        arr: xr.DataArray,
+        min_sigma: float = 14,
+        max_sigma: float = 25,
         n_sigma: int = 3):
     def _logmax_filter3d(frame):
         padding = int(max_sigma)

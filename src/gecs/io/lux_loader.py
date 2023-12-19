@@ -6,8 +6,9 @@ import xarray as xr
 from ..experiment import Axes
 from . import ioutils
 
+
 def load_lux(base: pl.Path, fillna: bool = True) -> xr.Dataset:
-    timepoint_tags = sorted([int(path.name.replace("T","")) for path in base.glob("raw_imgs/*")])
+    timepoint_tags = sorted([int(path.name.replace("T", "")) for path in base.glob("raw_imgs/*")])
     region_tags = set()
     field_tags = set()
     exposure_tags = set()
@@ -45,7 +46,7 @@ def load_lux(base: pl.Path, fillna: bool = True) -> xr.Dataset:
 
     dataset = xr.Dataset(
         data_vars=dict(
-            intensity = xr.DataArray(
+            intensity=xr.DataArray(
                 plate,
                 dims=[Axes.CHANNEL, Axes.TIME, Axes.REGION, Axes.FIELD, Axes.Y, Axes.X],
                 coords={

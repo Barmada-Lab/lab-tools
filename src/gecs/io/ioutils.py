@@ -1,7 +1,7 @@
 import pathlib as pl
 import logging
 
-from skimage import exposure, transform # type: ignore
+from skimage import exposure, transform  # type: ignore
 import dask.array as da
 import dask
 import numpy as np
@@ -9,10 +9,11 @@ import tifffile
 
 logger = logging.getLogger(__name__)
 
+
 def read_tiff_delayed(shape: tuple, reshape: bool = True):
     def read(path: pl.Path) -> np.ndarray:
         try:
-            logger.debug(f"Reading {path}")    
+            logger.debug(f"Reading {path}")
             img = tifffile.imread(path)
             if img.shape != shape and reshape:
                 img = transform.resize(
@@ -26,8 +27,9 @@ def read_tiff_delayed(shape: tuple, reshape: bool = True):
             img = np.zeros(shape, dtype=np.float32)
             img[:] = np.nan
             return img
-        
+
     return dask.delayed(read)
+
 
 def read_tiff_toarray(path: pl.Path, shape: tuple = (1024, 1024)):
     return da.from_delayed(read_tiff_delayed(shape)(path), shape, dtype=np.float32)
