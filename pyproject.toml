@@ -57,6 +57,7 @@ optional = true
 napari = {extras = ["pyside2"], version = "^0.4.16"}
 ipython = "^8.16.1"
 pytest = "^5.2"
+flake8 = "^6.1.0"
 
 [[tool.poetry.source]]
 name = "pytorch-cpu"
