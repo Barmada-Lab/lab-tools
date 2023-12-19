@@ -32,4 +32,5 @@ def read_tiff_delayed(shape: tuple, reshape: bool = True):
 
 
 def read_tiff_toarray(path: pl.Path, shape: tuple = (1024, 1024)):
+
     return da.from_delayed(read_tiff_delayed(shape)(path), shape, dtype=np.float32)
