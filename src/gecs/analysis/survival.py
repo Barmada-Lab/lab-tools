@@ -54,8 +54,8 @@ def write_survival_results(
         labeled: xr.DataArray,
         well_csv: pl.Path | None = None):
     count_rows = []
-    for well, field in product(labeled.well, labeled.field):
-        for t in labeled.t:
+    for well, field in product(labeled[Axes.REGION], labeled[Axes.FIELD]):
+        for t in labeled[Axes.TIME]:
             frame = labeled.sel({
                 Axes.REGION: well,
                 Axes.FIELD: field,
@@ -196,6 +196,7 @@ def gfp_method(
     with cpu_cluster() as client:
 
         data = xr.open_zarr(scratch_dir)
+        data = data.rename({val: Axes(val) for val in data.dims})
         labeled = data.labeled
         write_survival_results(output_dir, labeled, well_csv)
 
