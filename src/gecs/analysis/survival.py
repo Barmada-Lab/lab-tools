@@ -183,7 +183,8 @@ def gfp_method(
             corrected = illumination_correction(intensity, [Axes.TIME, Axes.Y, Axes.X])
             clahed = clahe(corrected)
             rescaled = rescale_intensity(clahed, [Axes.Y, Axes.X], out_range=np.float32)
-            labeled = segment_clahed_imgs(rescaled, str(model_loc))
+            labeled = segment_clahed_imgs(rescaled, str(model_loc)).persist()
+
             try:
                 xr.Dataset({
                     "labeled": labeled,
