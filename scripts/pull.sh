@@ -6,7 +6,7 @@ help() {
     echo "Usage: $(basename $0) <experiment_name>"
 }
 
-if [ -z $1 ]; then
+if [[ -z $1 ]]; then
     help
     exit 1
 fi
@@ -18,7 +18,9 @@ TEMP=/scratch/sbarmada_root/sbarmada0/$USER/dataden
 
 mkdir -p $TEMP
 
-filename="$1.tar.gz"
-scp $USER@$HOST:$ARCHIVE/$filename $TEMP
-tar -xvf $TEMP/$filename -C $DESTINATION
-rm $TEMP/$filename
+EXP_NAME=$1
+FILENAME="$EXP_NAME.tar.gz"
+echo "get '$ARCHIVE/$FILENAME' '$TEMP'" | sftp $USER@$HOST
+tar -xvf "$TEMP/$FILENAME" -C $DESTINATION
+touch "$DESTINATION/$EXP_NAME"
+rm "$TEMP/$FILENAME"
