@@ -146,7 +146,7 @@ def prep_experiment(
 @click.option("--dims", type=click.Choice(["XY", "TXY", "CXY", "ZXY"]), default="XY", help="dims of uploaded stacks")
 @click.option("--experiment-type", type=click.Choice(ExperimentType.__members__),  # type: ignore
               callback=lambda c, p, v: getattr(ExperimentType, v) if v else None, help="experiment type")
-@click.option("--rescale", type=float, default=0.1,
+@click.option("--rescale", type=float, default=0.0,
               help="""rescales images by stretching the range of their values to be bounded
                 by the given percentile range, e.g. a value of 1 will rescale an image
                 so that 0 1st percentile and 255 is the 99th percentile""")
