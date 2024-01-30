@@ -1,6 +1,6 @@
 import pathlib as pl
 
-from cvat_sdk import make_client, Client
+from cvat_sdk import Client, Config
 from tqdm import tqdm
 from skimage.measure import regionprops
 import pandas as pd
@@ -123,34 +123,28 @@ def cli_entry(
     output_dir = experiment_base / "results"
     output_dir.mkdir(exist_ok=True)
 
-    with make_client(
-        host=settings.cvat_url,
-        credentials=(
-            settings.cvat_username,
-            settings.cvat_password
-        )
-    ) as client:
+    client = Client(url=settings.cvat_url, config=Config(verify_ssl=False))
+    client.login((settings.cvat_username, settings.cvat_password))
+    org_slug = settings.cvat_org_slug
+    client.organization_slug = org_slug
 
-        org_slug = settings.cvat_org_slug
-        client.organization_slug = org_slug
+    (data, _) = client.api_client.projects_api.list(search=project_name)
+    assert data is not None and len(data.results) > 0, \
+        f"No project matching {project_name} in {org_slug}; create a project in the webapp first"
 
-        (data, _) = client.api_client.projects_api.list(search=project_name)
-        assert data is not None and len(data.results) > 0, \
-            f"No project matching {project_name} in {org_slug}; create a project in the webapp first"
+    project = next(filter(lambda x: x.name == project_name, data.results))
+    project_id = project.id
 
-        project = next(filter(lambda x: x.name == project_name, data.results))
-        project_id = project.id
-
-        match dims:
-            case "XY":
-                df = measure_2d(client, project_id, collections, channel_list)
-                df.to_csv(output_dir / "measurements_CVAT.csv", index=False)
-                return
-            case "TXY":
-                raise NotImplementedError("TXY measurements not implemented")
-            case "CXY":
-                raise NotImplementedError("CXY measurements not implemented")
-            case "ZXY":
-                raise NotImplementedError("ZXY measurements not implemented")
-            case _:
-                raise ValueError(f"Unknown dims {dims}")
+    match dims:
+        case "XY":
+            df = measure_2d(client, project_id, collections, channel_list)
+            df.to_csv(output_dir / "measurements_CVAT.csv", index=False)
+            return
+        case "TXY":
+            raise NotImplementedError("TXY measurements not implemented")
+        case "CXY":
+            raise NotImplementedError("CXY measurements not implemented")
+        case "ZXY":
+            raise NotImplementedError("ZXY measurements not implemented")
+        case _:
+            raise ValueError(f"Unknown dims {dims}")

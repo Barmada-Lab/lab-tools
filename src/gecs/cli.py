@@ -6,7 +6,7 @@ import click
 from .analysis.survival import cli_entry as survival
 
 from .cvat.survival import cli_entry as cvat_survival
-from .cvat.upload import cli_entry as cvat_upload
+from .cvat.upload import cli_entry_basic, cli_entry_experiment
 from .cvat.measure import cli_entry as cvat_measure
 from .cvat.nuc_cyto import cli_entry as cvat_nuc_cyto
 
@@ -36,6 +36,7 @@ def cvat():
 
 
 cvat.add_command(cvat_survival)
-cvat.add_command(cvat_upload)
+cvat.add_command(cli_entry_basic)
+cvat.add_command(cli_entry_experiment)
 cvat.add_command(cvat_measure)
 cvat.add_command(cvat_nuc_cyto)

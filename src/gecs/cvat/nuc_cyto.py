@@ -1,6 +1,6 @@
 import pathlib as pl
 
-from cvat_sdk import make_client, Client
+from cvat_sdk import Client, Config
 from skimage.measure import regionprops
 from tqdm import tqdm
 import numpy as np
@@ -10,7 +10,7 @@ import click
 
 from ..settings import settings
 from .upload import prep_experiment
-from gecs.experiment import ExperimentType, Axes
+from gecs.experiment import ExperimentType, Axes, parse_selector
 
 
 def rle_to_mask(rle: list[int], width: int, height: int) -> np.ndarray:
@@ -154,14 +154,14 @@ def measure_nuc_cyto_ratio(
     for task_name, frame_names, labelled_arr in enumerate_rois(client, project_id):
 
         # NEW WAY, BETTER WAY, BUT DOESN'T WORK WITH OLD EXPERIMENTS :(
-        # selector = parse_selector(task_name)
-        # intensity_arr = collection.sel(selector)
-        # channels = selector[Axes.CHANNEL].tolist()
+        selector = parse_selector(task_name)
+        intensity_arr = collection.sel(selector)
+        channels = selector[Axes.CHANNEL].tolist()
 
         # OLD WAY, BAD WAY, BUT WORKS WITH OLD EXPERIMENTS :(
-        region, field1, field2 = task_name.split("_")
-        intensity_arr = collection.sel({Axes.REGION: region, Axes.FIELD: f"{field1}_{field2}"}).load()
-        channels = [name.split(".")[0].split("_")[-1] for name in frame_names]
+        # region, field1, field2 = task_name.split("_")
+        # intensity_arr = collection.sel({Axes.REGION: region, Axes.FIELD: f"{field1}_{field2}"}).load()
+        # channels = [name.split(".")[0].split("_")[-1] for name in frame_names]
 
         nuc_idx = channels.index(nuc_channel)
         soma_idx = channels.index(soma_channel)
@@ -238,39 +238,34 @@ def cli_entry(
         mip: bool,
         experiment_type: ExperimentType):
 
-    with make_client(
-        host=settings.cvat_url,
-        credentials=(
-            settings.cvat_username,
-            settings.cvat_password
-        )
-    ) as client:
-        org_slug = settings.cvat_org_slug
-        client.organization_slug = org_slug
-        api_client = client.api_client
+    client = Client(url=settings.cvat_url, config=Config(verify_ssl=False))
+    client.login((settings.cvat_username, settings.cvat_password))
+    org_slug = settings.cvat_org_slug
+    client.organization_slug = org_slug
+    api_client = client.api_client
 
-        (data, _) = api_client.projects_api.list(search=project_name)
-        assert data is not None and len(data.results) > 0, \
-            f"No project matching {project_name} in organization {org_slug}"
+    (data, _) = api_client.projects_api.list(search=project_name)
+    assert data is not None and len(data.results) > 0, \
+        f"No project matching {project_name} in organization {org_slug}"
 
-        try:
-            # exact matches only
-            project = next(filter(lambda x: x.name == project_name, data.results))
-        except StopIteration:
-            raise ValueError(f"No project matching {project_name} in organization {org_slug}")
+    try:
+        # exact matches only
+        project = next(filter(lambda x: x.name == project_name, data.results))
+    except StopIteration:
+        raise ValueError(f"No project matching {project_name} in organization {org_slug}")
 
-        channel_list = channels.split(",")
+    channel_list = channels.split(",")
 
-        project_id = project.id
-        output_dir = experiment_base / "results"
-        output_dir.mkdir(exist_ok=True)
+    project_id = project.id
+    output_dir = experiment_base / "results"
+    output_dir.mkdir(exist_ok=True)
 
-        # TODO: homogenize collections and put into one array
-        if experiment_type is ExperimentType.ND2:
-            collections = {nd2_file.name.replace(".nd2", "").replace("-", "_"): prep_experiment(nd2_file, mip, False, experiment_type, 0.0, None, False, False, False) for nd2_file in experiment_base.glob("**/*.nd2")}
-            df = measure_nuc_cyto_ratio_nd2s(client, project_id, collections, nuc_channel, soma_channel, channel_list)
-            df.to_csv(output_dir / "nuc_cyto_CVAT.csv", index=False)
-        else:
-            collections = prep_experiment(experiment_base, mip, False, experiment_type, 0.0, None, False, False, False)
-            df = measure_nuc_cyto_ratio(client, project_id, collections, nuc_channel, soma_channel, channel_list)
-            df.to_csv(output_dir / "nuc_cyto_CVAT.csv", index=False)
+    # TODO: homogenize collections and put into one array
+    if experiment_type is ExperimentType.ND2:
+        collections = {nd2_file.name.replace(".nd2", "").replace("-", "_"): prep_experiment(nd2_file, mip, False, experiment_type, 0.0, None, False, False, False) for nd2_file in experiment_base.glob("**/*.nd2")}
+        df = measure_nuc_cyto_ratio_nd2s(client, project_id, collections, nuc_channel, soma_channel, channel_list)
+        df.to_csv(output_dir / "nuc_cyto_CVAT.csv", index=False)
+    else:
+        collections = prep_experiment(experiment_base, mip, False, experiment_type, 0.0, None, False, False, False)
+        df = measure_nuc_cyto_ratio(client, project_id, collections, nuc_channel, soma_channel, channel_list)
+        df.to_csv(output_dir / "nuc_cyto_CVAT.csv", index=False)
