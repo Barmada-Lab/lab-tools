@@ -126,14 +126,7 @@ def load_legacy_icc(base: pl.Path, fillna: bool) -> xr.Dataset:
                     Axes.REGION: list(map(str, timepoint_tags)),
                     Axes.FIELD: field_tags,
                 }
-            ).chunk({
-                Axes.CHANNEL: -1,
-                Axes.TIME: 1,
-                Axes.REGION: 1,
-                Axes.FIELD: 1,
-                Axes.Y: -1,
-                Axes.X: -1
-            })
+            )
         )
     ).squeeze(Axes.TIME, drop=True)
 

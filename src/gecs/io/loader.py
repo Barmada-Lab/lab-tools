@@ -5,6 +5,7 @@ import xarray as xr
 from .legacy_loader import load_legacy, load_legacy_icc
 from .nd2_loader import load_nd2
 from .lux_loader import load_lux
+from .cq1_loader import load_cq1
 from ..experiment import ExperimentType
 
 
@@ -19,4 +20,4 @@ def load_experiment(path: pl.Path, experiment_type: ExperimentType, fillna: bool
         case ExperimentType.LUX:
             return load_lux(path, fillna)
         case ExperimentType.CQ1:
-            raise NotImplementedError("CQ1 loader not implemented yet")
+            return load_cq1(path)

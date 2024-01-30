@@ -55,14 +55,7 @@ def load_lux(base: pl.Path, fillna: bool = True) -> xr.Dataset:
                     Axes.REGION: region_coords,
                     Axes.FIELD: field_coords,
                 }
-            ).chunk({
-                Axes.CHANNEL: -1,
-                Axes.TIME: 1,
-                Axes.REGION: 1,
-                Axes.FIELD: 1,
-                Axes.Y: -1,
-                Axes.X: -1,
-            }),
+            )
         )
     )
 
