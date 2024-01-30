@@ -125,8 +125,4 @@ def stitch(arr: xr.DataArray, trim: float = 0.05):
 
     x_stitched = xr.concat(trimmed.transpose("fx", ..., Axes.Y, Axes.X)[::-1], dim=Axes.Y)
     stitched = xr.concat(x_stitched.transpose("fy", ..., Axes.X, Axes.Y)[::-1], dim=Axes.X)
-    return stitched.drop(["fx", "fy"]).chunk({
-        Axes.TIME: -1,
-        Axes.Y: -1,
-        Axes.X: -1,
-    })
+    return stitched.drop(["fx", "fy"])
