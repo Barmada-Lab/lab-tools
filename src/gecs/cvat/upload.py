@@ -6,10 +6,12 @@ import tempfile
 import random
 import logging
 
-from cvat_sdk import make_client
+from cvat_sdk import Client as CvatClient
+from cvat_sdk import Config
 from cvat_sdk.models import TaskWriteRequest, ProjectWriteRequest
+from skimage.exposure import rescale_intensity
 from toolz import curry
-from dask.distributed import Client
+from dask.distributed import Client as DaskClient
 import xarray as xr
 import tifffile
 import click
@@ -64,6 +66,15 @@ def stage_z_stack(arr: xr.DataArray, tmpdir: pl.Path) -> list[pl.Path]:
         tifffile.imwrite(outpath, frame)
         images.append(outpath)
     return images
+
+
+@curry
+def stage_basic_tiff(path: pl.Path, tmpdir: pl.Path) -> list[pl.Path]:
+    img = tifffile.imread(path)
+    rescaled = rescale_intensity(img, out_range="uint8")
+    outpath = tmpdir / path.name
+    tifffile.imwrite(outpath, rescaled)
+    return [outpath]
 
 
 def upload(client, project_id: int, label: str, images: list[pl.Path]):
@@ -122,7 +133,7 @@ def prep_experiment(
         experiment = experiment.max(dim=Axes.Z)
 
     if apply_psuedocolor:
-        experiment = display.apply_psuedocolor(experiment.assign_attrs(attrs))
+        experiment = display.apply_psuedocolor(experiment).assign_attrs(attrs)
 
     if composite:
         if Axes.CHANNEL not in experiment.dims:
@@ -136,11 +147,40 @@ def prep_experiment(
     return experiment
 
 
-@click.command("upload")
+@click.command("upload_raw")
+@click.argument("project_name", type=str)
+@click.argument("collection_base", type=click.Path(exists=True, file_okay=False, path_type=pl.Path))
+def cli_entry_basic(
+        project_name: str,
+        collection_base: pl.Path):
+
+    client = CvatClient(url=settings.cvat_url, config=Config(verify_ssl=False))
+    client.login((settings.cvat_username, settings.cvat_password))
+
+    org_slug = settings.cvat_org_slug
+    client.organization_slug = org_slug
+
+    (data, _) = client.api_client.projects_api.list(search=project_name)
+    if data is None or len(data.results) == 0:
+        (project, _) = client.api_client.projects_api.create(
+            ProjectWriteRequest(name=project_name)  # type: ignore
+        )
+
+    else:
+        project = next(filter(lambda x: x.name == project_name, data.results))
+
+    project_id = project.id  # type: ignore
+
+    for path in collection_base.glob("**/*.tif"):
+        stage_and_upload(client, project_id, path.stem, stage_basic_tiff(path))  # type: ignore
+
+
+@click.command("upload_experiment")
 @click.argument("project_name", type=str)
 @click.argument("experiment_base", type=click.Path(exists=True, file_okay=False, path_type=pl.Path))
-@click.option("--channels", type=str, default="", help="comma-separated list of channels to include")
-@click.option("--tp", type=int, default=-1, help="timepoint to upload; if -1, uploads all timepoints")
+@click.option("--channels", type=str, default="", help="comma-separated list of channels to include. Defaults to all channels")
+@click.option("--regions", type=str, default="", help="comma-separated list of regions to include. Defaults to all regions")
+@click.option("--tps", type=str, default="", help="comma-separated list of timepoints to upload. Defaults to all timepoints")
 @click.option("--composite", is_flag=True, default=False, help="composite channels if set, else uploads each channel separately")
 @click.option("--mip", is_flag=True, default=False, help="apply MIP to each z-stack")
 @click.option("--dims", type=click.Choice(["XY", "TXY", "CXY", "ZXY"]), default="XY", help="dims of uploaded stacks")
@@ -152,11 +192,12 @@ def prep_experiment(
                 so that 0 1st percentile and 255 is the 99th percentile""")
 @click.option("--samples-per-region", type=int, default=-1, help="number of fields to upload per region")
 @click.option("--no-fillna", is_flag=True, default=False, help="don't interpolate NaNs")
-def cli_entry(
+def cli_entry_experiment(
         project_name: str,
         experiment_base: pl.Path,
         channels: str,
-        tp: int,
+        regions: str,
+        tps: str,
         composite: bool,
         mip: bool,
         dims: str,
@@ -165,7 +206,7 @@ def cli_entry(
         samples_per_region: int,
         no_fillna: bool):
 
-    dask_client = Client(n_workers=1)
+    dask_client = DaskClient(n_workers=1)
     logger.info(dask_client.dashboard_link)
 
     channel_list = None if channels == "" else channels.split(",")
@@ -177,71 +218,71 @@ def cli_entry(
     else:
         collections = [prep_experiment(experiment_base, mip, composite, experiment_type, rescale, channel_list, apply_psuedocolor=True, fillna=not no_fillna)]  # noqa: E501
 
-    with make_client(
-        host=settings.cvat_url,
-        credentials=(
-            settings.cvat_username,
-            settings.cvat_password
+    client = CvatClient(url=settings.cvat_url, config=Config(verify_ssl=False))
+    client.login((settings.cvat_username, settings.cvat_password))
+
+    org_slug = settings.cvat_org_slug
+    client.organization_slug = org_slug
+
+    (data, _) = client.api_client.projects_api.list(search=project_name)
+    if data is None or len(data.results) == 0:
+        (project, _) = client.api_client.projects_api.create(
+            ProjectWriteRequest(name=project_name)  # type: ignore
         )
-    ) as client:
 
-        org_slug = settings.cvat_org_slug
-        client.organization_slug = org_slug
+    else:
+        project = next(filter(lambda x: x.name == project_name, data.results))
 
-        (data, _) = client.api_client.projects_api.list(search=project_name)
-        if data is None or len(data.results) == 0:
-            (project, _) = client.api_client.projects_api.create(
-                ProjectWriteRequest(name=project_name)  # type: ignore
-            )
+    project_id = project.id  # type: ignore
 
-        else:
-            project = next(filter(lambda x: x.name == project_name, data.results))
+    for collection in collections:
+        if tps != "":
+            tps_list = [int(tp) for tp in tps.split(",")]
+            collection = collection.isel({Axes.TIME: tps_list})
+        if regions != "":
+            regions_list = [region for region in regions.split(",")]
+            collection = collection.sel({Axes.REGION: regions_list})
+        collection = collection.squeeze(drop=True)
+        match dims:
+            case "XY":
+                assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.X, Axes.Y, Axes.RGB}, collection.dims
+                for region in collection[Axes.REGION]:
+                    region_arr = collection.sel({Axes.REGION: region})
+                    sample = collection[Axes.FIELD] if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)  # noqa: E501
+                    for field in sample:
+                        arr = region_arr.sel({Axes.FIELD: field})
+                        selector_label = coord_selector(arr)
+                        stage_and_upload(client, project_id, selector_label, stage_single_frame(arr))  # type: ignore
 
-        project_id = project.id  # type: ignore
+            case "TXY":
+                assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.TIME, Axes.X, Axes.Y, Axes.RGB}, collection.dims
+                for region in collection[Axes.REGION]:
+                    sample = collection[Axes.FIELD] if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)  # noqa: E501
+                    region_arr = collection.sel({Axes.REGION: region})
+                    for field in sample:
+                        arr = region_arr.sel({Axes.FIELD: field})
+                        selector_label = coord_selector(arr)
+                        stage_and_upload(client, project_id, selector_label, stage_t_stack(arr))  # type: ignore
 
-        for collection in collections:
-            if tp != -1:
-                collection = collection.sel({Axes.TIME: tp})
-            match dims:
-                case "XY":
-                    assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.X, Axes.Y, Axes.RGB}, collection.dims
-                    for region in collection[Axes.REGION]:
-                        region_arr = collection.sel({Axes.REGION: region})
-                        sample = collection[Axes.FIELD] if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)  # noqa: E501
-                        for field in sample:
-                            arr = region_arr.sel({Axes.FIELD: field})
-                            selector_label = coord_selector(arr)
-                            stage_and_upload(client, project_id, selector_label, stage_single_frame(arr))  # type: ignore
+            case "CXY":
+                assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.CHANNEL, Axes.X, Axes.Y, Axes.RGB}, collection.dims
+                for region in collection[Axes.REGION]:
+                    region_arr = collection.sel({Axes.REGION: region})
+                    sample = collection[Axes.FIELD] if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
+                    for field in sample:
+                        arr = region_arr.sel({Axes.FIELD: field})
+                        selector_label = coord_selector(arr)
+                        stage_and_upload(client, project_id, selector_label, stage_channel_stack(arr))  # type: ignore
 
-                case "TXY":
-                    assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.TIME, Axes.X, Axes.Y, Axes.RGB}, collection.dims
-                    for region in collection[Axes.REGION]:
-                        sample = collection[Axes.FIELD] if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)  # noqa: E501
-                        region_arr = collection.sel({Axes.REGION: region})
-                        for field in sample:
-                            arr = region_arr.sel({Axes.FIELD: field})
-                            selector_label = coord_selector(arr)
-                            stage_and_upload(client, project_id, selector_label, stage_t_stack(arr))  # type: ignore
+            case "ZXY":
+                assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.Z, Axes.X, Axes.Y, Axes.RGB}, collection.dims
+                for region in collection[Axes.REGION]:
+                    region_arr = collection.sel({Axes.REGION: region})
+                    sample = collection[Axes.FIELD] if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
+                    for field in sample:
+                        arr = region_arr.sel({Axes.FIELD: field})
+                        selector_label = coord_selector(arr)
+                        stage_and_upload(client, project_id, selector_label, stage_z_stack(arr))  # type: ignore
 
-                case "CXY":
-                    assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.CHANNEL, Axes.X, Axes.Y, Axes.RGB}, collection.dims
-                    for region in collection[Axes.REGION]:
-                        region_arr = collection.sel({Axes.REGION: region})
-                        sample = collection[Axes.FIELD] if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
-                        for field in sample:
-                            arr = region_arr.sel({Axes.FIELD: field})
-                            selector_label = coord_selector(arr)
-                            stage_and_upload(client, project_id, selector_label, stage_channel_stack(arr))  # type: ignore
-
-                case "ZXY":
-                    assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.Z, Axes.X, Axes.Y, Axes.RGB}, collection.dims
-                    for region in collection[Axes.REGION]:
-                        region_arr = collection.sel({Axes.REGION: region})
-                        sample = collection[Axes.FIELD] if samples_per_region == -1 else random.sample([field for field in collection[Axes.FIELD]], samples_per_region)
-                        for field in sample:
-                            arr = region_arr.sel({Axes.FIELD: field})
-                            selector_label = coord_selector(arr)
-                            stage_and_upload(client, project_id, selector_label, stage_z_stack(arr))  # type: ignore
-
-                case _:
-                    raise ValueError(f"Unknown dims {dims}")
+            case _:
+                raise ValueError(f"Unknown dims {dims}")

@@ -4,7 +4,7 @@ import pathlib as pl
 from lifelines import CoxPHFitter
 import click
 import matplotlib.pyplot as plt
-from cvat_sdk import make_client, Client
+from cvat_sdk import Client, Config
 import pandas as pd
 from tqdm import tqdm
 
@@ -68,28 +68,24 @@ def analyze_survival(
 @click.argument("output_dir", type=click.Path(path_type=pl.Path))
 @click.option("--well-csv", type=click.Path(path_type=pl.Path), default=None)
 def cli_entry(project_name: str, output_dir: pl.Path, well_csv: pl.Path | None):
-    with make_client(
-        host=settings.cvat_url,
-        credentials=(
-            settings.cvat_username,
-            settings.cvat_password
-        )
-    ) as client:
-        org_slug = settings.cvat_org_slug
-        client.organization_slug = org_slug
-        api_client = client.api_client
 
-        (data, _) = api_client.projects_api.list(search=project_name)
-        assert data is not None and len(data.results) > 0, \
-            f"No project matching {project_name} in organization {org_slug}"
+    client = Client(url=settings.cvat_url, config=Config(verify_ssl=False))
+    client.login((settings.cvat_username, settings.cvat_password))
+    org_slug = settings.cvat_org_slug
+    client.organization_slug = org_slug
+    api_client = client.api_client
 
-        try:
-            # exact matches only
-            project = next(filter(lambda x: x.name == project_name, data.results))
-        except StopIteration:
-            raise ValueError(f"No project matching {project_name} in organization {org_slug}")
+    (data, _) = api_client.projects_api.list(search=project_name)
+    assert data is not None and len(data.results) > 0, \
+        f"No project matching {project_name} in organization {org_slug}"
 
-        output_dir.mkdir(exist_ok=True)
+    try:
+        # exact matches only
+        project = next(filter(lambda x: x.name == project_name, data.results))
+    except StopIteration:
+        raise ValueError(f"No project matching {project_name} in organization {org_slug}")
 
-        project_id = project.id
-        analyze_survival(client, project_id, output_dir, well_csv)
+    output_dir.mkdir(exist_ok=True)
+
+    project_id = project.id
+    analyze_survival(client, project_id, output_dir, well_csv)
