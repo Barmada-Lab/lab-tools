@@ -90,7 +90,7 @@ def load_acquisition(path: pl.Path, ome_xml_filename: str | None = None) -> xr.D
     fmt = "%Y-%m-%dT%H:%M:%S"
     start_time = datetime.strptime(start_time_str.split(".")[0], fmt)  # type: ignore
     end_time = datetime.strptime(end_time_str.split(".")[0], fmt)  # type: ignore
-    acquisition_delta = start_time - end_time
+    acquisition_delta = end_time - start_time
 
     plate = ome_xml.plates[0]
     rows, cols = plate.rows, plate.columns
