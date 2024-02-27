@@ -18,6 +18,7 @@ def register(arr: xr.DataArray):
         output_core_dims=[[Axes.TIME, "tmat_y", "tmat_x"]],
         dask_gufunc_kwargs=dict(
             output_sizes={"tmat_y": 3, "tmat_x": 3},
+            allow_rechunk=True,
         ),
         dask="parallelized",
         vectorize=True)

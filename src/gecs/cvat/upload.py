@@ -154,7 +154,7 @@ def cli_entry_basic(
         project_name: str,
         collection_base: pl.Path):
 
-    client = CvatClient(url=settings.cvat_url, config=Config(verify_ssl=False))
+    client = CvatClient(url=settings.cvat_url, config=Config())
     client.login((settings.cvat_username, settings.cvat_password))
 
     org_slug = settings.cvat_org_slug
@@ -218,7 +218,7 @@ def cli_entry_experiment(
     else:
         collections = [prep_experiment(experiment_base, mip, composite, experiment_type, rescale, channel_list, apply_psuedocolor=True, fillna=not no_fillna)]  # noqa: E501
 
-    client = CvatClient(url=settings.cvat_url, config=Config(verify_ssl=False))
+    client = CvatClient(url=settings.cvat_url)
     client.login((settings.cvat_username, settings.cvat_password))
 
     org_slug = settings.cvat_org_slug
@@ -236,13 +236,13 @@ def cli_entry_experiment(
     project_id = project.id  # type: ignore
 
     for collection in collections:
+        logger.info(collection.coords[Axes.REGION])
         if tps != "":
             tps_list = [int(tp) for tp in tps.split(",")]
             collection = collection.isel({Axes.TIME: tps_list})
         if regions != "":
             regions_list = [region for region in regions.split(",")]
             collection = collection.sel({Axes.REGION: regions_list})
-        collection = collection.squeeze(drop=True)
         match dims:
             case "XY":
                 assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.X, Axes.Y, Axes.RGB}, collection.dims

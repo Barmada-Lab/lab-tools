@@ -81,15 +81,14 @@ def measure_nuc_cyto_ratio_nd2s(
     df = pd.DataFrame()
     for task_name, frame_names, labelled_arr in enumerate_rois(client, project_id):
 
-        tokens = task_name.replace("-", "_").split("_")
-        region = "_".join(tokens[:-1])
+        selector = parse_selector(task_name)
+        region = selector.pop(Axes.REGION)
         collection = collections[region]
-        field = tokens[-1]
-        intensity_arr = collection.isel({Axes.REGION: 0}).sel({Axes.FIELD: field})
+        intensity_arr = collection.sel(selector)
 
-        channels = [name.split(".")[0].split("_")[-1] for name in frame_names]
-        nuc_idx = channels.index(nuc_channel)
-        soma_idx = channels.index(soma_channel)
+        channels = selector[Axes.CHANNEL]
+        nuc_idx = np.where(channels == nuc_channel)
+        soma_idx = np.where(channels == soma_channel)
 
         soma_mask = labelled_arr[soma_idx]
         nuclear_mask = labelled_arr[nuc_idx]
@@ -238,7 +237,7 @@ def cli_entry(
         mip: bool,
         experiment_type: ExperimentType):
 
-    client = Client(url=settings.cvat_url, config=Config(verify_ssl=False))
+    client = Client(url=settings.cvat_url, config=Config())
     client.login((settings.cvat_username, settings.cvat_password))
     org_slug = settings.cvat_org_slug
     client.organization_slug = org_slug

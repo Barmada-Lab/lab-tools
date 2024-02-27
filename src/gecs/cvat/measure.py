@@ -28,6 +28,32 @@ def rle_to_mask(rle: list[int], width: int, height: int) -> np.ndarray:
     return decoded
 
 
+def doathing():
+    return
+    # measurements = []
+    # for task_meta in tasks:
+    #     jobs = task_meta.get_jobs()
+    #     job_id = jobs[0].id
+    #     arr = experiment.sel(parse_selector(task_name)).isel({Axes.Z:0, Axes.TI
+    # ME:0})
+    #     job_metadata, _ = client.api_client.jobs_api.retrieve_data_meta(job_id)
+    
+    #     measurement = defaultdict(dict)
+    #     frames = job_metadata.frames
+    #     anno_table = task_meta.get_annotations()
+    #     task_name = task_meta.name
+    #     for shape in anno_table.shapes:
+    #         if shape.frame != 0:
+    #             continue
+    #         dead = shape['attributes'][0]['value'] == 'true'
+    #         rle = list(map(int, shape.points))
+    #         l, t, r, b = rle[-4:]
+    #         patch_height, patch_width = (bottom - top + 1, right - left + 1)
+    #         patch_mask = rle_to_mask(rle[:-4], patch_width, patch_height)
+    #         dapi = arr.sel({Axes.CHANNEL})[patch_mask].mean()
+    #         gfp = arr.sel({Axes.CHANNEL})[patch_mask].mean()
+    #         rfp = arr.sel({Axes.CHANNEL})[patch_mask].mean
+
 def get_labelled_arr(anno_table, length, height, width):
     channel_stack_mask = np.zeros((length, height, width), dtype=int)
     for shape in anno_table.shapes:
@@ -66,8 +92,8 @@ def measure_2d(
     df = pd.DataFrame()
     for task_name, _, labelled_arr in enumerate_rois(client, project_id):
         tokens = task_name.split("_")
-        collection_name = "_".join(tokens[:-1]) + ".nd2"
-        collection = collections[collection_name]
+        # collection_name = "_".join(tokens[:-1]) + ".nd2"
+        collection = list(collections.values())[0]
         intensity_arr = collection.sel(field=task_name)
         for rois in labelled_arr:
 
@@ -75,14 +101,14 @@ def measure_2d(
             for props in regionprops(rois):
                 field_measurements.append({
                     "id": props.label,
-                    "collection": collection_name,
+                    "collection": task_name,
                     "area": props.area,
                 })
             field_df = pd.DataFrame.from_records(field_measurements)
 
             for channel in measurement_channels:
                 field_intensity_arr = intensity_arr.sel(channel=channel).values
-
+                print(field_intensity_arr.min(), field_intensity_arr.max())
                 for props in regionprops(rois, intensity_image=field_intensity_arr):
                     mask = rois == props.label
                     field_df.loc[
@@ -118,12 +144,12 @@ def cli_entry(
     if experiment_type == "nd2s":
         collections = {nd2_file.name: prep_experiment(nd2_file, mip, False, experiment_type, 0.0, None, False) for nd2_file in experiment_base.glob("**/*.nd2")}
     else:
-        collections = {experiment_base.name: prep_experiment(experiment_base, mip, False, experiment_type, 0.0, None, False)}
+        collections = {experiment_base.name: prep_experiment(experiment_base, mip, False, experiment_type, rescale=0.0, channels=None, apply_psuedocolor=False, to_uint8=False, fillna=False)}
 
     output_dir = experiment_base / "results"
     output_dir.mkdir(exist_ok=True)
 
-    client = Client(url=settings.cvat_url, config=Config(verify_ssl=False))
+    client = Client(url=settings.cvat_url, config=Config())
     client.login((settings.cvat_username, settings.cvat_password))
     org_slug = settings.cvat_org_slug
     client.organization_slug = org_slug
