@@ -32,6 +32,8 @@ VALUE_DELIM = ":"
 
 def _fmt_coord_selector_str(label, coord_arr):
     arr = np.atleast_1d(coord_arr)
+    if label == Axes.TIME:
+        arr = arr.astype("long")
     if np.issubdtype(arr.dtype, np.str_):
         for value in arr:
             assert FIELD_DELIM not in value, f"{label} value {value} is invalid; contains a '|'; rename and try again"
@@ -67,7 +69,7 @@ def coord_selector(arr: xr.DataArray) -> str:
     coords = sorted(arr.coords.items())
     filtered = filter(lambda coord: coord[0] not in [Axes.X, Axes.Y], coords)
     return FIELD_DELIM.join([
-        _fmt_coord_selector_str(label, coord.values) for label, coord in filtered
+        _fmt_coord_selector_str(axis, coord.values) for axis, coord in filtered
     ])
 
 

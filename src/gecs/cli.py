@@ -9,6 +9,7 @@ from .cvat.survival import cli_entry as cvat_survival
 from .cvat.upload import cli_entry_basic, cli_entry_experiment
 from .cvat.measure import cli_entry as cvat_measure
 from .cvat.nuc_cyto import cli_entry as cvat_nuc_cyto
+from .models.nuclei_survival_svm import cli_entry as nuclei_survival_svm
 
 from gecs.settings import settings
 
@@ -28,6 +29,7 @@ def analyze():
 
 
 analyze.add_command(survival)
+analyze.add_command(nuclei_survival_svm)
 
 
 @cli.group()

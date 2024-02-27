@@ -9,10 +9,12 @@ class Settings(BaseSettings):
 
     log_level: str = "DEBUG"
 
-    cvat_url: str = "http://localhost:8080"
+    cvat_url: str = ""
     cvat_username: str = ""
     cvat_password: str = ""
     cvat_org_slug: str = "barma"
+
+    fo_cache: Path = Path("/data/.focache/")
 
     class Config:
         env_file = USER_CONFIG_HOME / "gecs.env"

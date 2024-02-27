@@ -3,7 +3,7 @@
 lab-tools is a toolkit designed around the needs of Sami Barmada's Lab at
 the University of Michigan. The contents of this collection are oriented
 towards bioimage analysis. The primary entrypoint to this toolkit is the
-application `gecs`.
+application `gecs` (GEneral Collection of Scripts)
 
 ## Installation Using pipx
 
