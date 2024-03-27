@@ -122,7 +122,7 @@ def cli_entry(
     output_dir = experiment_base / "results"
     output_dir.mkdir(exist_ok=True)
 
-    client = Client(url=settings.cvat_url, config=Config())
+    client = Client(url=settings.cvat_url, config=Config(verify_ssl=False))
     client.login((settings.cvat_username, settings.cvat_password))
     org_slug = settings.cvat_org_slug
     client.organization_slug = org_slug
