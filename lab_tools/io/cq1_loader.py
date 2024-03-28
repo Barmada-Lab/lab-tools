@@ -2,6 +2,7 @@ import pathlib as pl
 from itertools import product
 import xml.etree.ElementTree as xml
 import warnings
+import logging
 
 from lab_tools.experiment import Axes
 from datetime import datetime
@@ -14,6 +15,9 @@ import ome_types
 import xarray as xr
 import numpy as np
 import re
+
+
+logger = logging.getLogger(__name__)
 
 CQ1_ACQUISITION_DIR_REGEX = r"^(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hr>\d{2})(?P<min>\d{2})(?P<sec>\d{2})_(?P<plate_name>.*)$"
 CQ1_WELLPLATE_NAME_REGEX = r"^W(?P<well_idx>\d*)\(.*\),A.*,F(?P<field_idx>\d*)$"
@@ -157,6 +161,10 @@ def load_acquisition(path: pl.Path, ome_xml_filename: str | None = None) -> xr.D
     df[Axes.TIME] = df[Axes.TIME].map(lambda t: start_time + acq_delta * t).astype("datetime64[ns]")
     mi = pd.MultiIndex.from_frame(df.drop(["path"], axis=1))
 
+    def read_img(path):
+        logger.debug(f"Reading {path}")
+        return tifffile.imread(path)
+
     def read_indexed_ims(recurrence):
         """
         Recursively read and stack images from a sorted hierarchical index
@@ -164,7 +172,7 @@ def load_acquisition(path: pl.Path, ome_xml_filename: str | None = None) -> xr.D
         """
         if type(recurrence) is pd.Series:
             path = recurrence["path"]
-            return da.from_delayed(dask.delayed(tifffile.imread)(path), shape, dtype=np.uint16)
+            return da.from_delayed(dask.delayed(read_img)(path), shape, dtype=np.uint16)
         else:  # type(recurrence) is pd.DataFrame
             if type(recurrence.index) is pd.MultiIndex:
                 level = recurrence.index.levels[0]  # type: ignore
@@ -192,6 +200,10 @@ def load_acquisition(path: pl.Path, ome_xml_filename: str | None = None) -> xr.D
     arr.coords[Axes.CHANNEL] = arr.coords[Axes.CHANNEL].astype(str)
     arr.coords[Axes.REGION] = arr.coords[Axes.REGION].astype(str)
     arr.coords[Axes.FIELD] = arr.coords[Axes.FIELD].astype(str)
+
+    # Squeeze out Z if we're dealing with MIPs
+    if Axes.Z in arr.dims:
+        arr = arr.squeeze(Axes.Z, drop=True)
     return arr
 
 
