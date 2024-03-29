@@ -43,6 +43,7 @@ stardist = "^0.8.5"
 pyarrow = "15.0.0"
 hdaf-filter = "^0.1.1"
 h5py = "^3.10.0"
+textual = "0.53.0" # explicit dependency to avoid trogon incompatibility with 0.54.0
 
 [tool.poetry.group.dev]
 optional = true
