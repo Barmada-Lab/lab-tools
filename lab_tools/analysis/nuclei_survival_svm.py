@@ -5,12 +5,11 @@ import pathlib as pl
 from cvat_sdk import Client
 from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
-from skimage import filters, morphology  # type: ignore
+from skimage import filters, morphology, exposure, segmentation  # type: ignore
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split
 from skimage.measure import regionprops
 from joblib import dump, load
-from skimage import exposure, segmentation  # type: ignore
 from stardist.models import StarDist2D
 from tqdm import tqdm
 from PIL import Image
@@ -114,8 +113,7 @@ def evaluate(arr, seg_model, pipe):
 
     dapi = arr.sel({Axes.CHANNEL: "DAPI"}).values
 
-    rescaled = exposure.rescale_intensity(dapi, out_range="uint8")
-    med_filt = filters.median(rescaled, morphology.disk(5))
+    med_filt = filters.median(dapi, morphology.disk(5))
     clahed = exposure.equalize_adapthist(med_filt, kernel_size=100, clip_limit=0.01)
     objects, _ = seg_model.predict_instances(clahed)
     preds = np.zeros_like(objects, dtype=int)
