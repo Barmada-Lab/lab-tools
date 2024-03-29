@@ -217,7 +217,7 @@ def run(experiment: xr.Dataset, output_dir: pl.Path):
     gif_path = output_dir / "annotated"
     gif_path.mkdir(parents=True, exist_ok=True)
 
-    data = experiment.intensity.isel({Axes.Z: 0})
+    data = experiment.intensity
     summary = summarize(data, pipe, gif_path)
     summary.to_csv(output_dir / "nuclei_survival.csv", index=False)
 
