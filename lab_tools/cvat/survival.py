@@ -7,11 +7,12 @@ import matplotlib.pyplot as plt
 from cvat_sdk import Client, Config
 import pandas as pd
 from tqdm import tqdm
+from lab_tools.experiment import parse_selector, Axes
 
 from ..settings import settings
 
 
-def extract_survival_result(track) -> dict[str, Any]:
+def extract_survival_result(track, length) -> dict[str, Any]:
     points = track.shapes
     for point in points:
         if point.outside:
@@ -20,7 +21,7 @@ def extract_survival_result(track) -> dict[str, Any]:
                 "dead": 1
             }
     return {
-        "time": points[-1].frame,
+        "time": length - 1,
         "dead": 0
     }
 
@@ -34,11 +35,15 @@ def analyze_survival(
     tasks = client.projects.retrieve(project_id).get_tasks()
     rows = []
     for task_meta in tqdm(tasks):
-        pos = task_meta.name[:3]
+        length = task_meta.size
+        try:
+            well = parse_selector(task_meta.name)[Axes.REGION]
+        except ValueError:
+            well = task_meta.name[:3]
         annotation = task_meta.get_annotations()
         for track in annotation.tracks:
-            survival_result = extract_survival_result(track)
-            survival_result["well"] = pos
+            survival_result = extract_survival_result(track, length)
+            survival_result["well"] = well
             rows.append(survival_result)
     df = pd.DataFrame.from_records(rows)
 
@@ -50,12 +55,13 @@ def analyze_survival(
         condition_counts = df.groupby("Condition").size()
         df["Condition"] += " (n=" + df["Condition"].map(condition_counts).astype(str) + ")"
         cph = CoxPHFitter()
+        print(df)
         cph.fit(df.drop(columns="well"), duration_col="time", event_col="dead", strata="Condition")
         cph.baseline_cumulative_hazard_.plot(
             ylabel="Cumulative hazard",
             xlabel="T",
             title="Baseline cumulative hazards",
-            drawstyle="steps")
+            drawstyle="steps-mid",)
         output_fig = output_dir / "CoxPH_baselines_CVAT.pdf"
         plt.savefig(output_fig, format="pdf")
 
