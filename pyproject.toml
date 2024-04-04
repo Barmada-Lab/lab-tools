@@ -34,7 +34,7 @@ dask-image = "^2023.8.1"
 dask-jobqueue = "^0.8.5"
 bokeh = "^3.3.0"
 bottleneck = "^1.3.7"
-tensorflow = {extras = ["and-cuda"], version = "^2.16.1"}
+tensorflow = "2.15.0"
 pystackreg = "^0.2.6"
 lifelines = "^0.27.8"
 largestinteriorrectangle = "^0.2.0"
