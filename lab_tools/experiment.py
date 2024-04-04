@@ -49,7 +49,10 @@ def _parse_field_selector(arr: xr.DataArray | None, selector: str):
     try:
         axis = Axes(field_name)
     except ValueError:
-        raise ValueError(f"Invalid field name {field_name} in selector {selector}")
+        try:
+            axis = Axes(field_name.split(".")[-1].lower())
+        except ValueError:
+            raise ValueError(f"Invalid field name {field_name} in selector {selector}")
 
     if arr is None:
         target_dtype = np.str_
@@ -69,7 +72,7 @@ def coord_selector(arr: xr.DataArray) -> str:
     coords = sorted(arr.coords.items())
     filtered = filter(lambda coord: coord[0] not in [Axes.X, Axes.Y], coords)
     return FIELD_DELIM.join([
-        _fmt_coord_selector_str(axis, coord.values) for axis, coord in filtered
+        _fmt_coord_selector_str(axis.value, coord.values) for axis, coord in filtered
     ])
 
 
