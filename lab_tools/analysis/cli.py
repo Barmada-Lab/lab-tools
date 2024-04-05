@@ -1,12 +1,7 @@
-import logging
-
 from trogon import tui
 import click
 
-from lab_tools.settings import settings
-from lab_tools.analysis.nuclei_survival_svm import cli_entry as nuc_survival
-
-logging.basicConfig(level=settings.log_level)
+from lab_tools.analysis.nuclei_survival import cli_entry as nuc_survival
 
 
 @tui()

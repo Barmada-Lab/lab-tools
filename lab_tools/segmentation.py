@@ -1,8 +1,14 @@
+import logging
+
 from skimage import filters, morphology, exposure, segmentation  # type: ignore
 import xarray as xr
 import numpy as np
+from stardist.models import StarDist2D
 
 from lab_tools.experiment import Axes
+from .util import apply_ufunc_xy
+
+logger = logging.getLogger(__name__)
 
 
 def segment_logmaxed_stack(
@@ -95,6 +101,35 @@ def label(segmented: xr.DataArray):
         segmented,
         input_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
         output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
+        output_dtypes=[int],
+        dask="parallelized",
+        vectorize=True)
+
+
+def segment_stardist(array: xr.DataArray, model_name: str = "2D_versatile_fluo"):
+
+    model = StarDist2D.from_pretrained(model_name)
+
+    def _stardist_segmentation(frame: np.ndarray):
+        preds, _ = model.predict_instances(frame)  # type: ignore
+        return preds
+
+    return apply_ufunc_xy(
+        _stardist_segmentation,
+        array,
+        output_dtypes=[np.uint16])
+
+
+def remove_small_objects(array: xr.DataArray, min_size: int):
+
+    def _remove_small_objects(array):
+        return morphology.remove_small_objects(array, min_size=min_size)
+
+    return xr.apply_ufunc(
+        _remove_small_objects,
+        array,
+        input_core_dims=[[Axes.Y, Axes.X]],
+        output_core_dims=[[Axes.Y, Axes.X]],
         output_dtypes=[int],
         dask="parallelized",
         vectorize=True)

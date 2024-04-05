@@ -1,8 +1,20 @@
-from skimage import filters  # type: ignore
+from skimage import filters, morphology  # type: ignore
 import numpy as np
 import xarray as xr
 
 from .experiment import Axes
+from .util import apply_ufunc_xy
+
+
+def median(arr: xr.DataArray, footprint: np.ndarray | int, mode='nearest'):
+
+    if isinstance(footprint, int):
+        footprint = morphology.disk(footprint)
+
+    return apply_ufunc_xy(
+        filters.median,
+        arr,
+        ufunc_kwargs={"footprint": footprint, "mode": mode},)
 
 
 def logmax_filter2d(

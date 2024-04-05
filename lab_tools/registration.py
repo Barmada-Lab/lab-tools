@@ -1,5 +1,5 @@
-import warnings
 import xarray as xr
+from skimage import transform as skt
 import numpy as np
 from pystackreg import StackReg
 
@@ -65,62 +65,18 @@ def mask_bb(arr: xr.DataArray, mask: xr.DataArray):
         vectorize=True)
 
 
-def _transform_float(arr: xr.DataArray, tmats: xr.DataArray):
+def transform(arr: xr.DataArray, tmats: xr.DataArray, categorical=False):
     def _transform(stack, tmats):
-        sr = StackReg(StackReg.RIGID_BODY)
-        transformed = sr.transform_stack(stack, tmats=tmats)
-        return transformed
+        order = 0 if categorical else 1
+        return np.array([skt.warp(frame, tmat, order=order, mode="edge") for frame, tmat in zip(stack.copy(), tmats)])
+
     return xr.apply_ufunc(
         _transform,
         arr,
         tmats,
         input_core_dims=[[Axes.TIME, Axes.Y, Axes.X], [Axes.TIME, "tmat_y", "tmat_x"]],
         output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
+        dask_gufunc_kwargs=dict(allow_rechunk=True),
+        output_dtypes=[arr.dtype],
         dask="parallelized",
-        output_dtypes=[np.float64],
         vectorize=True)
-
-
-def _transform_bool(arr: xr.DataArray, tmats: xr.DataArray):
-    def _transform(stack, tmats):
-        sr = StackReg(StackReg.RIGID_BODY)
-        transformed = sr.transform_stack(stack, tmats=tmats)
-        return transformed > 0.5
-    return xr.apply_ufunc(
-        _transform,
-        arr,
-        tmats,
-        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X], [Axes.TIME, "tmat_y", "tmat_x"]],
-        output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
-        dask="parallelized",
-        output_dtypes=[bool],
-        vectorize=True)
-
-
-def _transform_int(arr: xr.DataArray, tmats: xr.DataArray):
-    def _transform(stack, tmats):
-        sr = StackReg(StackReg.RIGID_BODY)
-        transformed = sr.transform_stack(stack, tmats=tmats)
-        return np.rint(transformed)
-    return xr.apply_ufunc(
-        _transform,
-        arr,
-        tmats,
-        input_core_dims=[[Axes.TIME, Axes.Y, Axes.X], [Axes.TIME, "tmat_y", "tmat_x"]],
-        output_core_dims=[[Axes.TIME, Axes.Y, Axes.X]],
-        dask="parallelized",
-        output_dtypes=[int],
-        vectorize=True)
-
-
-def transform(arr: xr.DataArray, tmats: xr.DataArray):
-    """ Multiple dispatch? Never heard of it. """
-    if np.issubdtype(arr.dtype, np.bool_):
-        return _transform_bool(arr, tmats)
-    elif np.issubdtype(arr.dtype, np.floating):
-        return _transform_float(arr, tmats)
-    elif np.issubdtype(arr.dtype, np.integer):
-        return _transform_int(arr, tmats)
-    else:
-        warnings.warn(f"Unhandled transform array of type {arr.dtype}; defaulting to float64")
-        return _transform_float(arr, tmats)

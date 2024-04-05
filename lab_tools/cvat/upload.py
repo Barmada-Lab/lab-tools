@@ -243,7 +243,6 @@ def cli_entry_experiment(
         if regions != "":
             regions_list = [region for region in regions.split(",")]
             collection = collection.sel({Axes.REGION: regions_list})
-        collection = collection.squeeze()
         match dims:
             case "XY":
                 assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.X, Axes.Y, Axes.RGB}, collection.dims
@@ -266,7 +265,6 @@ def cli_entry_experiment(
                         stage_and_upload(client, project_id, selector_label, stage_t_stack(arr))  # type: ignore
 
             case "CXY":
-                print(collection)
                 assert {*collection.dims} == {Axes.REGION, Axes.FIELD, Axes.CHANNEL, Axes.X, Axes.Y, Axes.RGB}, collection.dims
                 for region in collection[Axes.REGION]:
                     region_arr = collection.sel({Axes.REGION: region})
