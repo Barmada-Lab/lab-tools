@@ -13,4 +13,5 @@ def equalize_adapthist(arr: xr.DataArray, kernel_size: int | None = None, clip_l
     return apply_ufunc_xy(
         exposure.equalize_adapthist,
         arr,
-        ufunc_kwargs=dict(kernel_size=kernel_size, clip_limit=clip_limit, nbins=nbins))
+        ufunc_kwargs=dict(kernel_size=kernel_size, clip_limit=clip_limit, nbins=nbins),
+        output_dtypes=["float16"],)

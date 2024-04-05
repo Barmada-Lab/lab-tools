@@ -1,7 +1,7 @@
 from trogon import tui
 import click
 
-from lab_tools.analysis.nuclei_survival import cli_entry as nuc_survival
+from lab_tools.analysis.pultra_survival import cli_entry as nuc_survival
 
 
 @tui()

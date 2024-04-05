@@ -3,8 +3,9 @@ import logging
 from skimage import filters, morphology, exposure, segmentation  # type: ignore
 import xarray as xr
 import numpy as np
-from stardist.models import StarDist2D
+from stardist.models import StarDist2D, Config2D
 
+from lab_tools.settings import settings
 from lab_tools.experiment import Axes
 from .util import apply_ufunc_xy
 
@@ -108,7 +109,7 @@ def label(segmented: xr.DataArray):
 
 def segment_stardist(array: xr.DataArray, model_name: str = "2D_versatile_fluo"):
 
-    model = StarDist2D.from_pretrained(model_name)
+    model = StarDist2D(Config2D(use_gpu=False)).from_pretrained(model_name)
 
     def _stardist_segmentation(frame: np.ndarray):
         preds, _ = model.predict_instances(frame)  # type: ignore
