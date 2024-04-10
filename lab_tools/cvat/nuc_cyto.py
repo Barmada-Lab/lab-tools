@@ -70,7 +70,7 @@ def colocalize_rois(nuc_rois, soma_rois):
 
 
 # temp hack until we figure out how to work with inhomogenous experiments
-def measure_nuc_cyto_ratio_nd2s(
+def measure_nuc_cyto_ratio_nd2s(  # noqa: C901
         client: Client,
         project_id: int,
         collections: dict[str, xr.DataArray],
@@ -83,7 +83,7 @@ def measure_nuc_cyto_ratio_nd2s(
 
         selector = parse_selector(task_name)
         region = selector.pop(Axes.REGION)
-        collection = collections[region]
+        collection = collections[region]  # type: ignore
         intensity_arr = collection.sel(selector)
 
         channels = selector[Axes.CHANNEL]
@@ -97,11 +97,19 @@ def measure_nuc_cyto_ratio_nd2s(
         if cyto_mask.max() == 0 or nuclear_mask.max() == 0:
             continue
 
+        soma_measurements = []
+        for props in regionprops(soma_mask):
+            soma_measurements.append({
+                "id": props.label,
+                "area_soma": props.area,
+            })
+        soma_df = pd.DataFrame.from_records(soma_measurements)
+
         cytoplasmic_measurements = []
         for props in regionprops(cyto_mask):
             cytoplasmic_measurements.append({
                 "id": props.label,
-                "area": props.area,
+                "area_cyto": props.area,
             })
         cyto_df = pd.DataFrame.from_records(cytoplasmic_measurements)
 
@@ -109,7 +117,7 @@ def measure_nuc_cyto_ratio_nd2s(
         for props in regionprops(nuclear_mask):
             nuclear_measurements.append({
                 "id": props.label,
-                "area": props.area,
+                "area_nuc": props.area,
             })
         nuc_df = pd.DataFrame.from_records(nuclear_measurements)
 
@@ -120,28 +128,40 @@ def measure_nuc_cyto_ratio_nd2s(
 
             field_intensity_arr = intensity_arr.sel({Axes.CHANNEL: channel}).values
 
+            # measure soma
+            for props in regionprops(soma_mask, intensity_image=field_intensity_arr):
+                mask = soma_mask == props.label
+                soma_df.loc[
+                    soma_df["id"] == props.label, f"{channel}_mean_soma"] = field_intensity_arr[mask].mean()
+                soma_df.loc[
+                    soma_df["id"] == props.label, f"{channel}_std_soma"] = field_intensity_arr[mask].std()
+
             # measure cyto
             for props in regionprops(cyto_mask, intensity_image=field_intensity_arr):
                 mask = cyto_mask == props.label
                 cyto_df.loc[
-                    cyto_df["id"] == props.label, f"{channel}_intensity_mean"] = field_intensity_arr[mask].mean()
+                    cyto_df["id"] == props.label, f"{channel}_mean_cyto"] = field_intensity_arr[mask].mean()
+                cyto_df.loc[
+                    cyto_df["id"] == props.label, f"{channel}_std_cyto"] = field_intensity_arr[mask].std()
 
             # measure nuc
             for props in regionprops(nuclear_mask, intensity_image=field_intensity_arr):
                 mask = nuclear_mask == props.label
                 nuc_df.loc[
-                    nuc_df["id"] == props.label, f"{channel}_intensity_mean"] = field_intensity_arr[mask].mean()
+                    nuc_df["id"] == props.label, f"{channel}_mean_nuc"] = field_intensity_arr[mask].mean()
+                nuc_df.loc[
+                    nuc_df["id"] == props.label, f"{channel}_std_nuc"] = field_intensity_arr[mask].std()
 
         colocalized = dict(colocalize_rois(nuclear_mask, soma_mask))
         nuc_df["id"] = nuc_df["id"].map(colocalized)
-        merged = nuc_df.merge(cyto_df, on="id", suffixes=("_nuc", "_cyto"))
+        merged = nuc_df.merge(cyto_df, on="id").merge(soma_df, on="id")
         merged.insert(0, "label", task_name)
         df = pd.concat((df, merged))
 
     return df
 
 
-def measure_nuc_cyto_ratio(
+def measure_nuc_cyto_ratio(  # noqa: C901
         client: Client,
         project_id: int,
         collection: xr.DataArray,
@@ -172,11 +192,19 @@ def measure_nuc_cyto_ratio(
         if cyto_mask.max() == 0 or nuclear_mask.max() == 0:
             continue
 
+        soma_measurements = []
+        for props in regionprops(soma_mask):
+            soma_measurements.append({
+                "id": props.label,
+                "area_soma": props.area,
+            })
+        soma_df = pd.DataFrame.from_records(soma_measurements)
+
         cytoplasmic_measurements = []
         for props in regionprops(cyto_mask):
             cytoplasmic_measurements.append({
                 "id": props.label,
-                "area": props.area,
+                "area_cyto": props.area,
             })
         cyto_df = pd.DataFrame.from_records(cytoplasmic_measurements)
 
@@ -184,7 +212,7 @@ def measure_nuc_cyto_ratio(
         for props in regionprops(nuclear_mask):
             nuclear_measurements.append({
                 "id": props.label,
-                "area": props.area,
+                "area_nuc": props.area,
             })
         nuc_df = pd.DataFrame.from_records(nuclear_measurements)
 
@@ -198,17 +226,29 @@ def measure_nuc_cyto_ratio(
             assert cyto_mask.shape == field_intensity_arr.shape, \
                 f"cyto mask and intensity array have different shapes: {cyto_mask.shape} | {field_intensity_arr.shape}"
 
+            # measure soma
+            for props in regionprops(soma_mask, intensity_image=field_intensity_arr):
+                mask = soma_mask == props.label
+                soma_df.loc[
+                    soma_df["id"] == props.label, f"{channel}_mean_soma"] = field_intensity_arr[mask].mean()
+                soma_df.loc[
+                    soma_df["id"] == props.label, f"{channel}_std_soma"] = field_intensity_arr[mask].std()
+
             # measure cyto
             for props in regionprops(cyto_mask, intensity_image=field_intensity_arr):
                 mask = cyto_mask == props.label
                 cyto_df.loc[
-                    cyto_df["id"] == props.label, f"{channel}_intensity_mean"] = field_intensity_arr[mask].mean()
+                    cyto_df["id"] == props.label, f"{channel}_mean_cyto"] = field_intensity_arr[mask].mean()
+                cyto_df.loc[
+                    cyto_df["id"] == props.label, f"{channel}_std_cyto"] = field_intensity_arr[mask].std()
 
             # measure nuc
             for props in regionprops(nuclear_mask, intensity_image=field_intensity_arr):
                 mask = nuclear_mask == props.label
                 nuc_df.loc[
-                    nuc_df["id"] == props.label, f"{channel}_intensity_mean"] = field_intensity_arr[mask].mean()
+                    nuc_df["id"] == props.label, f"{channel}_mean_nuc"] = field_intensity_arr[mask].mean()
+                nuc_df.loc[
+                    nuc_df["id"] == props.label, f"{channel}_std_nuc"] = field_intensity_arr[mask].std()
 
         colocalized = dict(colocalize_rois(nuclear_mask, soma_mask))
         nuc_df["id"] = nuc_df["id"].map(colocalized)
