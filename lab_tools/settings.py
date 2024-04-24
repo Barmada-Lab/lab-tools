@@ -2,11 +2,11 @@ from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from pathlib import Path
 
-USER_CONFIG_HOME = Path.home() / ".config" / "gecs"
+USER_CONFIG_HOME = Path.home() / ".config"
 
 
 class Settings(BaseSettings):
-    app_name: str = "GECS"
+    app_name: str = "lab_tools"
 
     log_level: str = "INFO"
 
@@ -33,8 +33,9 @@ class Settings(BaseSettings):
         return path
 
     class Config:
-        env_file = USER_CONFIG_HOME / "gecs.env"
+        env_file = USER_CONFIG_HOME / "lab_tools.env"
         env_file_encoding = "utf-8"
+        env_prefix = 'lab_tools_'
 
 
 settings = Settings()
