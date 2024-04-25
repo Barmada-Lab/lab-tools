@@ -2,8 +2,8 @@ from skimage import filters, morphology  # type: ignore
 import numpy as np
 import xarray as xr
 
-from .experiment import Axes
-from .util import apply_ufunc_xy
+from lab_tools.experiment import Axes
+from lab_tools.utils import apply_ufunc_xy
 
 
 def median(arr: xr.DataArray, footprint: np.ndarray | int, mode='nearest'):

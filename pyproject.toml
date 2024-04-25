@@ -5,8 +5,8 @@ description = ""
 authors = ["Jacob Waksmacki <jwaksmack@gmail.com>"]
 
 [tool.poetry.scripts]
-cvat_tools = "lab_tools.cvat.cli:cli"
-analysis = "lab_tools.analysis.cli:cli"
+cvat_tools = "lab_tools.cvat_cli:cli"
+analysis = "lab_tools.analysis_cli:cli"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
@@ -29,8 +29,8 @@ nd2 = "^0.10.0"
 ome-types = "^0.5.0"
 Pillow = "10.1.0"
 xarray = "^2023.9.0"
-dask = "^2024.4.1"
-distributed = "^2024.4.1"
+dask = "2024.4.1"
+distributed = "2024.4.1"
 dask-image = "^2023.8.1"
 bokeh = "^3.3.0"
 bottleneck = "^1.3.7"
@@ -45,6 +45,8 @@ hdaf-filter = "^0.1.1"
 h5py = "^3.10.0"
 textual = "0.53.0" # explicit dependency to avoid trogon incompatibility with 0.54.0
 more-itertools = "^10.2.0"
+celery = "^5.4.0"
+redis = "^5.0.4"
 
 [tool.poetry.group.dev]
 optional = true

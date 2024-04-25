@@ -5,9 +5,8 @@ import xarray as xr
 import numpy as np
 from stardist.models import StarDist2D, Config2D
 
-from lab_tools.settings import settings
 from lab_tools.experiment import Axes
-from .util import apply_ufunc_xy
+from lab_tools.utils import apply_ufunc_xy
 
 logger = logging.getLogger(__name__)
 

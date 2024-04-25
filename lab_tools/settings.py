@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     #  Path to shared collection storage -- stores annoted datasets for training
     collections_path: Path = Path("/nfs/turbo/shared/collections")
 
+    celery_broker_url: str = "redis://localhost:6379"
+
     @field_validator("models_path", "collections_path")
     @classmethod
     def exists(cls, path: Path):

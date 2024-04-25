@@ -2,7 +2,6 @@ from pathlib import Path
 import logging
 import warnings
 import os
-from datetime import datetime
 
 from PIL import Image
 from cvat_sdk import Client as CVATClient
@@ -15,16 +14,15 @@ from skimage.segmentation import mark_boundaries
 from skimage.exposure import rescale_intensity
 from skimage import filters, exposure, morphology, transform  # type: ignore
 from joblib import dump, load
-from dask.distributed import Client, Worker, LocalCluster
+from dask.distributed import Worker, get_client
 from stardist.models import StarDist2D, Config2D
 from pystackreg import StackReg
-import click
 import xarray as xr
 import pandas as pd
 import numpy as np
 
-from lab_tools.util import experiment_path_argument, experiment_type_argument, iter_idx_prod
-from lab_tools.io import loader
+from lab_tools.utils import iter_idx_prod
+from lab_tools.utils import load_experiment
 from lab_tools.settings import settings
 from lab_tools.experiment import ExperimentType, Axes, parse_selector
 from lab_tools.cvat.nuc_cyto import rle_to_mask
@@ -195,11 +193,11 @@ def quantify(intensity: xr.DataArray, seg_model: StarDist2D, classifier: Pipelin
                 mask = label_frame == props.label
                 if np.logical_and(mask, min_bb).sum() > 0:
                     continue
-                
+
                 prediction = np.argmax(np.bincount(pred_frame[mask]))
                 if prediction == DEAD:
                     count += 1
-            
+
             counts.append(count)
 
         if annotation_dir is not None:
@@ -235,8 +233,8 @@ def quantify(intensity: xr.DataArray, seg_model: StarDist2D, classifier: Pipelin
                 append_images=the_rest, duration=500, loop=0)
 
         return xr.DataArray(
-            data=np.array(counts).reshape(-1,1,1), 
-            dims=[Axes.TIME, Axes.REGION, Axes.FIELD], 
+            data=np.array(counts).reshape(-1, 1, 1),
+            dims=[Axes.TIME, Axes.REGION, Axes.FIELD],
             coords={Axes.TIME: field[Axes.TIME], Axes.REGION: field[Axes.REGION], Axes.FIELD: field[Axes.FIELD]})
 
     chunked = intensity.chunk({
@@ -245,30 +243,31 @@ def quantify(intensity: xr.DataArray, seg_model: StarDist2D, classifier: Pipelin
         Axes.REGION: 1,
         Axes.FIELD: 1
     })
-    
+
+    # final result is cellcount as a fuction of time, region, and field
     template = chunked.isel({
-        Axes.CHANNEL: 0, 
-        Axes.X: 0, 
-        Axes.Y : 0
+        Axes.CHANNEL: 0,
+        Axes.X: 0,
+        Axes.Y: 0
     }).drop_vars(Axes.CHANNEL).squeeze(drop=True)
 
     return xr.map_blocks(quantify_field, chunked, template=template)
 
 
 def run(experiment_path: Path, experiment_type: ExperimentType, save_annotations: bool):
-    fmt = f"main|%(asctime)s|%(name)s|%(levelname)s: %(message)s"
+    fmt = "main|%(asctime)s|%(name)s|%(levelname)s: %(message)s"
     logging.basicConfig(level=settings.log_level, format=fmt)
 
-    client = Client(LocalCluster(n_workers=8, threads_per_worker=2))
+    client = get_client()
     logger.info(f"Connected to dask scheduler {client.scheduler}")
     logger.info(f"Dask dashboard available at {client.dashboard_link}")
     logger.debug(f"Cluster: {client.cluster}")
 
     def init_logging(dask_worker: Worker):
         fmt = f"{dask_worker.id}|%(asctime)s|%(name)s|%(levelname)s: %(message)s"
-        # disable GPU for workers. Although stardist is GPU accelerated, it's 
+        # disable GPU for workers. Although stardist is GPU accelerated, it's
         # faster to run many CPU workers in parallel
-        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
         logging.basicConfig(level=settings.log_level, format=fmt)
         logging.info(dask_worker.id)
 
@@ -278,13 +277,13 @@ def run(experiment_path: Path, experiment_type: ExperimentType, save_annotations
     if (classifier := load_death_classifier(SVM_MODEL_PATH)) is None:
         logger.debug("classifier not found. Training new classifier:")
         logger.debug(f"experiment path: {NUCLEI_EXPERIMENT_PATH}")
-        nuclei_intensity = loader.load_experiment(NUCLEI_EXPERIMENT_PATH, NUCLEI_EXPERIMENT_TYPE).intensity
+        nuclei_intensity = load_experiment(NUCLEI_EXPERIMENT_PATH, NUCLEI_EXPERIMENT_TYPE).intensity
         classifier = train_death_classifier(nuclei_intensity, NUCLEI_PROJECT_ID, NUCLEI_LIVE_LABEL_ID, SVM_MODEL_PATH)
 
-    intensity = loader.load_experiment(experiment_path, experiment_type).intensity
+    intensity = load_experiment(experiment_path, experiment_type).intensity
 
     if experiment_type is ExperimentType.CQ1:
-        # The last row/col of DAPI images captured on the CQ1 is inexplicably zeroed out. 
+        # The last row/col of DAPI images captured on the CQ1 is inexplicably zeroed out.
         # We slice it out to avoid issues further down the line
         intensity = intensity.isel({Axes.X: slice(0, 1998), Axes.Y: slice(0, 1998)})
 
@@ -297,8 +296,7 @@ def run(experiment_path: Path, experiment_type: ExperimentType, save_annotations
 
     model = StarDist2D(Config2D(use_gpu=False)).from_pretrained("2D_versatile_fluo")
     assert model is not None, "Could not load stardist model"
-    counts = quantify(intensity, model, classifier, annotation_dir=annotation_dir)
-    counts.load()
+    counts = quantify(intensity, model, classifier, annotation_dir=annotation_dir).compute()
 
     rows = []
     for ts in iter_idx_prod(counts, ignore_dims=[Axes.TIME]):
@@ -311,12 +309,3 @@ def run(experiment_path: Path, experiment_type: ExperimentType, save_annotations
     df = pd.DataFrame(rows)
     df.to_csv(results_dir / "survival.csv", index=False)
     logger.info(f"Finished processing {experiment_path}")
-
-
-@click.command("pultra-survival")
-@experiment_path_argument()
-@experiment_type_argument()
-@click.option("--save-annotations", is_flag=True,
-              help="Save annotated stacks to results folder")
-def cli_entry(experiment_path: Path, experiment_type: ExperimentType, save_annotations: bool):
-    run(experiment_path, experiment_type, save_annotations)

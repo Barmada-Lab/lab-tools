@@ -4,7 +4,25 @@ import pathlib as pl
 import click
 import xarray as xr
 
-from .experiment import Axes, ExperimentType
+from lab_tools.io.legacy_loader import load_legacy, load_legacy_icc
+from lab_tools.io.nd2_loader import load_nd2
+from lab_tools.io.lux_loader import load_lux
+from lab_tools.io.cq1_loader import load_cq1
+from lab_tools.experiment import Axes, ExperimentType
+
+
+def load_experiment(path: pl.Path, experiment_type: ExperimentType, fillna: bool = False) -> xr.Dataset:
+    match experiment_type:
+        case ExperimentType.LEGACY:
+            return load_legacy(path, fillna)
+        case ExperimentType.LEGACY_ICC:
+            return load_legacy_icc(path, fillna)
+        case ExperimentType.ND2:
+            return load_nd2(path)
+        case ExperimentType.LUX:
+            return load_lux(path, fillna)
+        case ExperimentType.CQ1:
+            return load_cq1(path)
 
 
 def apply_ufunc_xy(
@@ -46,5 +64,5 @@ def experiment_type_argument(**kwargs):
     return click.argument(
         "experiment-type",
         type=click.Choice(ExperimentType.__members__),  # type: ignore
-        callback=lambda c, p, v: getattr(ExperimentType, v) if v else None, 
+        callback=lambda c, p, v: getattr(ExperimentType, v) if v else None,
         **kwargs)

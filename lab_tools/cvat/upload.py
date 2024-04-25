@@ -19,7 +19,7 @@ import click
 from lab_tools import display
 from lab_tools.settings import settings
 from lab_tools.experiment import Axes, ExperimentType, coord_selector
-from lab_tools.io.loader import load_experiment
+from lab_tools.utils import load_experiment
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,34 @@
+services:
+
+  queue:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  worker:
+    build: 
+      context: .
+      dockerfile: components/worker/Dockerfile
+    depends_on:
+      - queue
+    ports:
+      - "8787:8787"
+    environment:
+      - LAB_TOOLS_CELERY_BROKER_URL=redis://queue:6379
+    volumes:
+      - /nfs/bignasty:/nfs/bignasty
+      - /nfs/turbo:/nfs/turbo
+      - ./lab_tools:/app/lab_tools
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 116G
+
+  monitor:
+    image: mher/flower 
+    depends_on:
+      - queue
+    command: celery --broker redis://queue:6379 flower
+    ports: 
+      - "5555:5555"
