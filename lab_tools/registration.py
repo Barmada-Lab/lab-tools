@@ -6,10 +6,10 @@ from skimage import transform as skt
 import numpy as np
 from pystackreg import StackReg
 
-from .experiment import Axes
-
+from lab_tools.experiment import Axes
 
 logger = logging.getLogger(__name__)
+
 
 def register(arr: xr.DataArray):
     def _register(stack):
@@ -76,7 +76,7 @@ def mask_bb(arr: xr.DataArray, mask: xr.DataArray):
 def transform(arr: xr.DataArray, tmats: xr.DataArray, categorical=False):
     """
     Transform a stack of images using a set of transformation matrices.
-    
+
     Parameters
     ----------
     arr : xr.DataArray

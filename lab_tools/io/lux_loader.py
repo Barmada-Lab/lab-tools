@@ -3,7 +3,7 @@ import pathlib as pl
 import dask.array as da
 import xarray as xr
 
-from ..experiment import Axes
+from lab_tools.experiment import Axes
 from . import ioutils
 
 

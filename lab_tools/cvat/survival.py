@@ -2,14 +2,14 @@ from typing import Any
 import pathlib as pl
 
 from lifelines import CoxPHFitter
+from cvat_sdk import Client, Config
+from tqdm import tqdm
 import click
 import matplotlib.pyplot as plt
-from cvat_sdk import Client, Config
 import pandas as pd
-from tqdm import tqdm
-from lab_tools.experiment import parse_selector, Axes
 
-from ..settings import settings
+from lab_tools.experiment import parse_selector, Axes
+from lab_tools.settings import settings
 
 
 def extract_survival_result(track, length) -> dict[str, Any]:

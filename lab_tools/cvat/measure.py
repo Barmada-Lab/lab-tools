@@ -8,9 +8,9 @@ import xarray as xr
 import numpy as np
 import click
 
-from ..settings import settings
-from .upload import prep_experiment
+from lab_tools.settings import settings
 from lab_tools.experiment import ExperimentType
+from .upload import prep_experiment
 
 
 def rle_to_mask(rle: list[int], width: int, height: int) -> np.ndarray:

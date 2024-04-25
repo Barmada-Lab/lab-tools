@@ -2,7 +2,7 @@ from toolz import curry
 import xarray as xr
 import numpy as np
 
-from .enumero import NaturalOrderStrEnum
+from lab_tools.enumero import NaturalOrderStrEnum
 
 
 class Axes(NaturalOrderStrEnum):

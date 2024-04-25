@@ -5,7 +5,7 @@ import dask.array as da
 import xarray as xr
 import numpy as np
 
-from ..experiment import Axes
+from lab_tools.experiment import Axes
 from . import ioutils
 
 
