@@ -6,7 +6,7 @@ from lab_tools.settings import settings
 logger = get_task_logger(__name__)
 
 
-class JobQueueTask(Task):
+class LabToolsTask(Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         pass
@@ -18,5 +18,5 @@ class JobQueueTask(Task):
 app = Celery('lab_tools',
              broker=settings.celery_broker_url,
              broker_connection_retry_on_startup=True,
-             task_cls=JobQueueTask,
+             task_cls=LabToolsTask,
              include=['lab_tools.analysis.tasks'])
