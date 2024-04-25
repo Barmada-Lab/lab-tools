@@ -72,7 +72,7 @@ def coord_selector(arr: xr.DataArray) -> str:
     coords = sorted(arr.coords.items())
     filtered = filter(lambda coord: coord[0] not in [Axes.X, Axes.Y], coords)
     return FIELD_DELIM.join([
-        _fmt_coord_selector_str(axis.value, coord.values) for axis, coord in filtered
+        _fmt_coord_selector_str(axis.value, coord.values) for axis, coord in filtered  # type: ignore
     ])
 
 
