@@ -18,7 +18,6 @@ services:
     volumes:
       - /nfs/bignasty:/nfs/bignasty
       - /nfs/turbo:/nfs/turbo
-      - ./lab_tools:/app/lab_tools
     restart: on-failure
     deploy:
       resources:

@@ -18,8 +18,14 @@ RUN --mount=type=cache,target=$POETRY_CACHE_DIR poetry install
 RUN rm -rf lab_tools
 
 # copy cached deps and latest source
-FROM builder as runtime
-WORKDIR /app
+FROM python:3.11.8-bookworm as stripped
+
+COPY --from=builder /app/.venv /app/.venv
+
+# finally, get the latest source
+FROM stripped as runtime
+
+COPY ./lab_tools ./lab_tools
 
 COPY components/worker/entrypoint.sh .
 
