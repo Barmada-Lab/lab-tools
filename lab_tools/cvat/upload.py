@@ -191,7 +191,7 @@ def cli_entry_basic(
                 by the given percentile range, e.g. a value of 1 will rescale an image
                 so that 0 1st percentile and 255 is the 99th percentile""")
 @click.option("--samples-per-region", type=int, default=-1, help="number of fields to upload per region")
-@click.option("--no-fillna", is_flag=True, default=False, help="don't interpolate NaNs")
+@click.option("--fillna", is_flag=True, default=False, help="interpolate missing images")
 def cli_entry_experiment(
         project_name: str,
         experiment_base: pl.Path,
@@ -204,7 +204,7 @@ def cli_entry_experiment(
         experiment_type: ExperimentType,
         rescale: float,
         samples_per_region: int,
-        no_fillna: bool):
+        fillna: bool):
 
     dask_client = DaskClient(n_workers=1)
     logger.info(dask_client.dashboard_link)
@@ -214,9 +214,9 @@ def cli_entry_experiment(
         channel_list = channel_list[0]
 
     if experiment_type == ExperimentType.ND2:
-        collections = [prep_experiment(nd2_file, mip, composite, experiment_type, rescale, channel_list, apply_psuedocolor=True, fillna=not no_fillna) for nd2_file in experiment_base.glob("**/*.nd2")]  # noqa: E501
+        collections = [prep_experiment(nd2_file, mip, composite, experiment_type, rescale, channel_list, apply_psuedocolor=True, fillna=fillna) for nd2_file in experiment_base.glob("**/*.nd2")]  # noqa: E501
     else:
-        collections = [prep_experiment(experiment_base, mip, composite, experiment_type, rescale, channel_list, apply_psuedocolor=True, fillna=not no_fillna)]  # noqa: E501
+        collections = [prep_experiment(experiment_base, mip, composite, experiment_type, rescale, channel_list, apply_psuedocolor=True, fillna=fillna)]  # noqa: E501
 
     client = CvatClient(url=settings.cvat_url)
     client.login((settings.cvat_username, settings.cvat_password))
