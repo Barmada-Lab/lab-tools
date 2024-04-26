@@ -24,6 +24,7 @@ COPY --from=builder /app/.venv /app/.venv
 
 # finally, get the latest source
 FROM stripped as runtime
+WORKDIR /app
 
 COPY ./lab_tools ./lab_tools
 

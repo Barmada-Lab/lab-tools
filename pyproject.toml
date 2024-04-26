@@ -34,7 +34,6 @@ distributed = "2024.4.1"
 dask-image = "^2023.8.1"
 bokeh = "^3.3.0"
 bottleneck = "^1.3.7"
-tensorflow = "2.15.0"
 pystackreg = "^0.2.6"
 lifelines = "^0.27.8"
 largestinteriorrectangle = "^0.2.0"
@@ -47,6 +46,7 @@ textual = "0.53.0" # explicit dependency to avoid trogon incompatibility with 0.
 more-itertools = "^10.2.0"
 celery = "^5.4.0"
 redis = "^5.0.4"
+tensorflow-cpu = "2.15.0"
 
 [tool.poetry.group.dev]
 optional = true
@@ -55,7 +55,7 @@ optional = true
 pytest = "^5.2"
 flake8 = "^6.1.0"
 ipython = "^8.22.2"
-napari = {version = "0.4.19", extras=["pyqt6_experimental"] }
+napari = "^0.4.19"
 
 [tool.pyright]
 reportPrivateImportUsage = false
