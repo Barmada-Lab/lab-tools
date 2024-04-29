@@ -1,8 +1,7 @@
 __pycache__/
-dist/
 .env
 .ipynb_checkpoints/
 .mypy_cache/
 **/local.py
 notebooks/**/local
-.vscode/
+.vscode
