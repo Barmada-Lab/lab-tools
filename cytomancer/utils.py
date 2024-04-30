@@ -66,3 +66,45 @@ def experiment_type_argument(**kwargs):
         type=click.Choice(ExperimentType.__members__),  # type: ignore
         callback=lambda c, p, v: getattr(ExperimentType, v) if v else None,
         **kwargs)
+
+
+def get_user_confirmation(prompt, default=None):
+    """
+    Prompt the user for a yes/yo response.
+
+    Args:
+        prompt (str): The question to ask the user.
+        default (str, optional): The default response if the user provides no input.
+                                 Should be 'y'/'yes', 'n'/'no', or None. Defaults to None.
+
+    Returns:
+        bool: True if the user confirms (Yes), False otherwise (No).
+    """
+
+    # Establish valid responses
+    yes_responses = {"yes", "y"}
+    no_responses = {"no", "n"}
+
+    # Include default in the prompt if it is provided
+    if default is not None:
+        default = default.lower()
+        if default in yes_responses:
+            prompt = f"{prompt} [Y/n]: "
+        elif default in no_responses:
+            prompt = f"{prompt} [y/N]: "
+    else:
+        prompt = f"{prompt} [y/n]: "
+
+    while True:
+        response = input(prompt).strip().lower()
+
+        # Check for a valid response; if found, return True/False
+        if response in yes_responses:
+            return True
+        if response in no_responses:
+            return False
+        if default is not None and response == "":
+            return default in yes_responses
+
+        # If response is invalid, notify the user and prompt again
+        print("Please respond with 'y' or 'n' (or 'yes' or 'no').")

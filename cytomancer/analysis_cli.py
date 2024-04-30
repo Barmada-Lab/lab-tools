@@ -7,11 +7,14 @@ from cytomancer.analysis.tasks import run_pultra_survival
 from cytomancer.utils import experiment_path_argument, experiment_type_argument
 from cytomancer.experiment import ExperimentType
 
+from cytomancer.updater import check_for_updates
+
 
 @tui()
 @click.group()
 @click.pass_context
 def cli(ctx):
+    check_for_updates()
     ctx.ensure_object(dict)
 
 

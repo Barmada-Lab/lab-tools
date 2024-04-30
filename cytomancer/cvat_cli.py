@@ -8,6 +8,7 @@ from cytomancer.cvat.upload import cli_entry_basic, cli_entry_experiment
 from cytomancer.cvat.measure import cli_entry as cvat_measure
 from cytomancer.cvat.nuc_cyto import cli_entry as cvat_nuc_cyto
 
+from cytomancer.updater import check_for_updates
 from cytomancer.settings import settings
 
 logging.basicConfig(level=settings.log_level)
@@ -17,6 +18,7 @@ logging.basicConfig(level=settings.log_level)
 @click.group()
 @click.pass_context
 def cli(ctx):
+    check_for_updates()
     ctx.ensure_object(dict)
 
 
