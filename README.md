@@ -10,7 +10,7 @@ cytomancer is a collection of tools designed around the needs of Sami Barmada's 
 
 ### Using pipx (recommended)
 
-The simplest way to use these tools is to install them with pipx. You can install pipx by running:
+The simplest way to use these tools is to install them with pipx. If you don't have pipx installed already, you can install it by running:
 
     python -m pip install --user pipx
 
