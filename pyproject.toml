@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "lab_tools"
-version = "0.1.1"
+name = "cytomancer"
+version = "0.1.0"
 description = ""
 authors = ["Jacob Waksmacki <jwaksmack@gmail.com>"]
 
 [tool.poetry.scripts]
-cvat_tools = "lab_tools.cvat_cli:cli"
-analysis = "lab_tools.analysis_cli:cli"
+cvat_tools = "cytomancer.cvat_cli:cli"
+analysis = "cytomancer.analysis_cli:cli"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"

@@ -1,8 +1,8 @@
 from skimage import exposure  # type: ignore
 import xarray as xr
 
-from lab_tools.utils import apply_ufunc_xy
-from lab_tools.experiment import Axes
+from cytomancer.utils import apply_ufunc_xy
+from cytomancer.experiment import Axes
 
 
 def equalize_adapthist(arr: xr.DataArray, kernel_size: int | None = None, clip_limit=0.01, nbins=256):

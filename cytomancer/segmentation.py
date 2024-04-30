@@ -5,8 +5,8 @@ import xarray as xr
 import numpy as np
 from stardist.models import StarDist2D, Config2D
 
-from lab_tools.experiment import Axes
-from lab_tools.utils import apply_ufunc_xy
+from cytomancer.experiment import Axes
+from cytomancer.utils import apply_ufunc_xy
 
 logger = logging.getLogger(__name__)
 

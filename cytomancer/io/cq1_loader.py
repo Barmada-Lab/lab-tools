@@ -4,7 +4,7 @@ import xml.etree.ElementTree as xml
 import warnings
 import logging
 
-from lab_tools.experiment import Axes
+from cytomancer.experiment import Axes
 from datetime import datetime
 from skimage import exposure  # type: ignore
 import tifffile

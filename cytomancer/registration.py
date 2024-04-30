@@ -6,7 +6,7 @@ from skimage import transform as skt
 import numpy as np
 from pystackreg import StackReg
 
-from lab_tools.experiment import Axes
+from cytomancer.experiment import Axes
 
 logger = logging.getLogger(__name__)
 

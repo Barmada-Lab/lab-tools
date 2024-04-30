@@ -2,8 +2,8 @@ from pathlib import Path
 
 from dask.distributed import Client, LocalCluster
 
-from lab_tools.celery import app, LabToolsTask
-from lab_tools.experiment import ExperimentType
+from cytomancer.celery import app, LabToolsTask
+from cytomancer.experiment import ExperimentType
 
 
 @app.task(bind=True)

@@ -1,6 +1,6 @@
 from celery import Celery, Task
 from celery.utils.log import get_task_logger
-from lab_tools.settings import settings
+from cytomancer.settings import settings
 
 
 logger = get_task_logger(__name__)
@@ -15,8 +15,8 @@ class LabToolsTask(Task):
         pass
 
 
-app = Celery('lab_tools',
+app = Celery('cytomancer',
              broker=settings.celery_broker_url,
              broker_connection_retry_on_startup=True,
              task_cls=LabToolsTask,
-             include=['lab_tools.analysis.tasks'])
+             include=['cytomancer.analysis.tasks'])

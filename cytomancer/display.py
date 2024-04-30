@@ -4,7 +4,7 @@ import pandas as pd
 import xarray as xr
 import numpy as np
 
-from lab_tools.experiment import Axes
+from cytomancer.experiment import Axes
 
 
 def rescale_intensity(arr: xr.DataArray, dims: list[Axes], **kwargs):

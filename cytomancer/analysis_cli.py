@@ -3,9 +3,9 @@ from pathlib import Path
 from trogon import tui
 import click
 
-from lab_tools.analysis.tasks import run_pultra_survival
-from lab_tools.utils import experiment_path_argument, experiment_type_argument
-from lab_tools.experiment import ExperimentType
+from cytomancer.analysis.tasks import run_pultra_survival
+from cytomancer.utils import experiment_path_argument, experiment_type_argument
+from cytomancer.experiment import ExperimentType
 
 
 @tui()
@@ -25,7 +25,7 @@ def cli(ctx):
 def pultra_survival(experiment_path: Path, experiment_type: ExperimentType, save_annotations: bool, sync: bool):
 
     if sync:
-        from lab_tools.analysis.pultra_survival import run
+        from cytomancer.analysis.pultra_survival import run
         run(experiment_path, experiment_type, save_annotations)
     else:
         run_pultra_survival.delay(str(experiment_path), experiment_type, save_annotations)

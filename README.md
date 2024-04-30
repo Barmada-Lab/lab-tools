@@ -1,6 +1,6 @@
 ## What's this?
 
-lab-tools is a collection of tools designed around the needs of Sami Barmada's Lab at the University of Michigan. The contents of this collection are oriented towards bioimage analysis.
+cytomancer is a collection of tools designed around the needs of Sami Barmada's Lab at the University of Michigan. The contents of this collection are oriented towards bioimage analysis.
 
 ## Requirements
 
@@ -16,4 +16,4 @@ The simplest way to use these tools is to install them with pipx. You can instal
 
 Then, install the repository by running:
 
-    pipx install git+https://github.com/Barmada-Lab/lab-tools
+    pipx install git+https://github.com/Barmada-Lab/cytomancer

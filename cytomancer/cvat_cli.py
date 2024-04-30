@@ -3,12 +3,12 @@ import logging
 from trogon import tui
 import click
 
-from .survival import cli_entry as cvat_survival
-from .upload import cli_entry_basic, cli_entry_experiment
-from .measure import cli_entry as cvat_measure
-from .nuc_cyto import cli_entry as cvat_nuc_cyto
+from cytomancer.cvat.survival import cli_entry as cvat_survival
+from cytomancer.cvat.upload import cli_entry_basic, cli_entry_experiment
+from cytomancer.cvat.measure import cli_entry as cvat_measure
+from cytomancer.cvat.nuc_cyto import cli_entry as cvat_nuc_cyto
 
-from lab_tools.settings import settings
+from cytomancer.settings import settings
 
 logging.basicConfig(level=settings.log_level)
 

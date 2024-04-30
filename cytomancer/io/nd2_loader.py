@@ -3,7 +3,7 @@ import pathlib as pl
 import xarray as xr
 import nd2
 
-from lab_tools.experiment import Axes
+from cytomancer.experiment import Axes
 
 
 def load_nd2(path: pl.Path) -> xr.Dataset:

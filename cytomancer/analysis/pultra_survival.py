@@ -21,11 +21,11 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 
-from lab_tools.utils import iter_idx_prod
-from lab_tools.utils import load_experiment
-from lab_tools.settings import settings
-from lab_tools.experiment import ExperimentType, Axes, parse_selector
-from lab_tools.cvat.nuc_cyto import rle_to_mask
+from cytomancer.utils import iter_idx_prod
+from cytomancer.utils import load_experiment
+from cytomancer.settings import settings
+from cytomancer.experiment import ExperimentType, Axes, parse_selector
+from cytomancer.cvat.nuc_cyto import rle_to_mask
 
 logger = logging.getLogger(__name__)
 

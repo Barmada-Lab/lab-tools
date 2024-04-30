@@ -4,11 +4,11 @@ import pathlib as pl
 import click
 import xarray as xr
 
-from lab_tools.io.legacy_loader import load_legacy, load_legacy_icc
-from lab_tools.io.nd2_loader import load_nd2
-from lab_tools.io.lux_loader import load_lux
-from lab_tools.io.cq1_loader import load_cq1
-from lab_tools.experiment import Axes, ExperimentType
+from cytomancer.io.legacy_loader import load_legacy, load_legacy_icc
+from cytomancer.io.nd2_loader import load_nd2
+from cytomancer.io.lux_loader import load_lux
+from cytomancer.io.cq1_loader import load_cq1
+from cytomancer.experiment import Axes, ExperimentType
 
 
 def load_experiment(path: pl.Path, experiment_type: ExperimentType, fillna: bool = False) -> xr.Dataset:

@@ -16,10 +16,10 @@ import xarray as xr
 import tifffile
 import click
 
-from lab_tools import display
-from lab_tools.settings import settings
-from lab_tools.experiment import Axes, ExperimentType, coord_selector
-from lab_tools.utils import load_experiment
+from cytomancer import display
+from cytomancer.settings import settings
+from cytomancer.experiment import Axes, ExperimentType, coord_selector
+from cytomancer.utils import load_experiment
 
 logger = logging.getLogger(__name__)
 

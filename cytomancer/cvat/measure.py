@@ -8,8 +8,8 @@ import xarray as xr
 import numpy as np
 import click
 
-from lab_tools.settings import settings
-from lab_tools.experiment import ExperimentType
+from cytomancer.settings import settings
+from cytomancer.experiment import ExperimentType
 from .upload import prep_experiment
 
 

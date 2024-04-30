@@ -6,7 +6,7 @@ USER_CONFIG_HOME = Path.home() / ".config"
 
 
 class Settings(BaseSettings):
-    app_name: str = "lab_tools"
+    app_name: str = "cytomancer"
 
     log_level: str = "INFO"
 
@@ -35,9 +35,9 @@ class Settings(BaseSettings):
         return path
 
     class Config:
-        env_file = USER_CONFIG_HOME / "lab_tools.env"
+        env_file = USER_CONFIG_HOME / "cytomancer.env"
         env_file_encoding = "utf-8"
-        env_prefix = 'lab_tools_'
+        env_prefix = 'cytomancer_'
 
 
 settings = Settings()

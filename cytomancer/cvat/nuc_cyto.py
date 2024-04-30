@@ -8,8 +8,8 @@ import pandas as pd
 import xarray as xr
 import click
 
-from lab_tools.settings import settings
-from lab_tools.experiment import ExperimentType, Axes, parse_selector
+from cytomancer.settings import settings
+from cytomancer.experiment import ExperimentType, Axes, parse_selector
 from .upload import prep_experiment
 
 
