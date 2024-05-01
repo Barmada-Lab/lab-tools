@@ -6,7 +6,7 @@ from cytomancer.settings import settings
 logger = get_task_logger(__name__)
 
 
-class LabToolsTask(Task):
+class CytomancerTask(Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         pass
@@ -18,5 +18,5 @@ class LabToolsTask(Task):
 app = Celery('cytomancer',
              broker=settings.celery_broker_url,
              broker_connection_retry_on_startup=True,
-             task_cls=LabToolsTask,
+             task_cls=CytomancerTask,
              include=['cytomancer.analysis.tasks'])

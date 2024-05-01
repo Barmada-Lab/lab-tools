@@ -16,7 +16,7 @@ import xarray as xr
 import tifffile
 import click
 
-from cytomancer import display
+from cytomancer.ops import display
 from cytomancer.settings import settings
 from cytomancer.experiment import Axes, ExperimentType, coord_selector
 from cytomancer.utils import load_experiment
