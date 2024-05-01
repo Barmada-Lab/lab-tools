@@ -17,3 +17,16 @@ The simplest way to use these tools is to install them with pipx. If you don't h
 Then, install the repository by running:
 
     pipx install git+https://github.com/Barmada-Lab/cytomancer
+
+The main entrypoint to cytomancer should then be made available via the `cyto` command.
+
+## Usage
+
+You can launch a Terminal User Interface (TUI) session by running:
+
+    cyto tui
+
+Alternatively, you can invoke any command listed in the tui directly from your shell. For information about the commands available, run:
+
+    cyto --help
+
