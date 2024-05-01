@@ -23,7 +23,7 @@ import numpy as np
 
 from cytomancer.utils import iter_idx_prod
 from cytomancer.utils import load_experiment
-from cytomancer.settings import settings
+from cytomancer.config import settings
 from cytomancer.experiment import ExperimentType, Axes, parse_selector
 from cytomancer.cvat.nuc_cyto import rle_to_mask
 

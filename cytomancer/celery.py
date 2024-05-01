@@ -1,6 +1,6 @@
 from celery import Celery, Task
 from celery.utils.log import get_task_logger
-from cytomancer.settings import settings
+from cytomancer.config import settings
 
 
 logger = get_task_logger(__name__)

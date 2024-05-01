@@ -8,7 +8,7 @@ import xarray as xr
 import numpy as np
 import click
 
-from cytomancer.settings import settings
+from cytomancer.config import settings
 from cytomancer.experiment import ExperimentType
 from .upload import prep_experiment
 
@@ -124,7 +124,7 @@ def cli_entry(
 
     client = Client(url=settings.cvat_url, config=Config(verify_ssl=False))
     client.login((settings.cvat_username, settings.cvat_password))
-    org_slug = settings.cvat_org_slug
+    org_slug = settings.cvat_org
     client.organization_slug = org_slug
 
     (data, _) = client.api_client.projects_api.list(search=project_name)
