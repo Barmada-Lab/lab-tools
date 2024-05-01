@@ -7,7 +7,6 @@ USER_CONFIG_PATH = Path.home() / ".config" / "cytomancer.env"
 
 
 class Settings(BaseSettings):
-    app_name: str = "cytomancer"
 
     log_level: str = "INFO"
 
@@ -45,6 +44,7 @@ class Settings(BaseSettings):
         env_file = USER_CONFIG_PATH
         env_file_encoding = "utf-8"
         env_prefix = 'cytomancer_'
+        extra = "ignore"
 
 
 settings = Settings()
