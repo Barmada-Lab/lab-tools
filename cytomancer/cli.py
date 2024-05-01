@@ -76,7 +76,7 @@ def config_group(ctx):
 @click.command("show")
 def show_config():
     """
-    Display the current settings.
+    Display current configuration settings.
     """
     print("\nCurrent settings:")
     for k, v in settings.model_dump().items():
@@ -102,7 +102,7 @@ def settings_options():
 @settings_options()
 def update_config(**kwargs):
     """
-    Update configuration
+    Update config
     """
     for k, v in kwargs.items():
         setattr(settings, k, v)
@@ -114,7 +114,7 @@ def update_config(**kwargs):
 @click.password_option("--cvat-password", prompt="CVAT Password")
 def cvat_auth(cvat_username, cvat_password):
     """
-    Update CVAT credentials
+    Update CVAT credentials. Run this with no arguments to get an interactive prompt that hides your password.
     """
 
     print(f"\nTesting CVAT connection to server {settings.cvat_url}...")
