@@ -57,7 +57,6 @@ def experiment_path_argument(**kwargs):
     return click.argument(
         "experiment-path",
         type=click.Path(exists=True, file_okay=False, path_type=pl.Path),
-        help="Path to the experiment directory",
         **kwargs)
 
 
@@ -66,7 +65,6 @@ def experiment_type_argument(**kwargs):
         "experiment-type",
         type=click.Choice(ExperimentType.__members__),  # type: ignore
         callback=lambda c, p, v: getattr(ExperimentType, v) if v else None,
-        help="Directory structure / file format of the experiment directory",
         **kwargs)
 
 
