@@ -43,10 +43,8 @@ def get_latest_whl_asset():
 
 def pipx_upgrade_whl(whl_url: str):
     # when using pipx, we need to uninstall the old version before installing the new one
-    print()
-    print(f"uninstalling {DIST_NAME}...")
+    print(f"\nuninstalling {DIST_NAME}...")
     subprocess.run(['pipx', 'uninstall', DIST_NAME])
-    print()
     subprocess.check_call(['pipx', 'install', whl_url])
 
 
@@ -57,13 +55,14 @@ def check_for_updates():
     if local_version == latest_version:
         return
 
-    print()
-    print(f"A new release of {DIST_NAME} is available ({local_version} -> {latest_version})")
+    print(f"\nA new release of {DIST_NAME} is available ({local_version} -> {latest_version})")
     release_url = gh.get_repo(REPO_NAME).get_latest_release().html_url
-    print(f"read the release notes at: {release_url}")
-    print()
+    print(f"read the release notes at: {release_url}\n")
 
     if get_user_confirmation("Would you like to upgrade?", default="y"):
         whl = get_latest_whl_asset()
         pipx_upgrade_whl(whl.browser_download_url)
         sys.exit(0)
+    else:
+        print("Continuing without updating.")
+        print("You can disable this behavior by setting `check_updates` to False in the settings command.")

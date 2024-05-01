@@ -17,11 +17,11 @@ class Axes(NaturalOrderStrEnum):
 
 
 class ExperimentType(NaturalOrderStrEnum):
-    LEGACY = "legacy"
-    LEGACY_ICC = "legacy-icc"
+    CQ1 = "cq1"
     ND2 = "nd2"
     LUX = "lux"
-    CQ1 = "cq1"
+    LEGACY = "legacy"
+    LEGACY_ICC = "legacy-icc"
 
 
 # ex. field-1|region-B02|channel-GFP:RFP:Cy5|time-1:2:3:4:5:6:7:8:9:10
