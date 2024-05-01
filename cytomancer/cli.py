@@ -60,6 +60,27 @@ def cvat_group(ctx):
     ctx.ensure_object(dict)
 
 
+@click.command("auth")
+@click.option("--cvat-username", prompt="CVAT Username")
+@click.password_option("--cvat-password", prompt="CVAT Password")
+def cvat_auth(cvat_username, cvat_password):
+    """
+    Update CVAT credentials. Run this with no arguments to get an interactive prompt that hides your password.
+    """
+
+    print(f"\nTesting CVAT connection to server {settings.cvat_url}...")
+    if not test_cvat_connection(settings.cvat_url, cvat_username, cvat_password):
+        print("Connection failed. Please verify your credentials and try again.")
+        print("See `cyto config update --help` for other CVAT-related settings")
+        return
+
+    print("Authentication successful. Saving credentials.")
+    settings.cvat_username = cvat_username
+    settings.cvat_password = cvat_password
+    settings.save()
+
+
+cvat_group.add_command(cvat_auth)
 cvat_group.add_command(cvat_survival)
 cvat_group.add_command(cli_entry_experiment)
 cvat_group.add_command(cvat_nuc_cyto)
@@ -109,26 +130,5 @@ def update_config(**kwargs):
     settings.save()
 
 
-@click.command("cvat-auth")
-@click.option("--cvat-username", prompt="CVAT Username")
-@click.password_option("--cvat-password", prompt="CVAT Password")
-def cvat_auth(cvat_username, cvat_password):
-    """
-    Update CVAT credentials. Run this with no arguments to get an interactive prompt that hides your password.
-    """
-
-    print(f"\nTesting CVAT connection to server {settings.cvat_url}...")
-    if not test_cvat_connection(settings.cvat_url, cvat_username, cvat_password):
-        print("Connection failed. Please verify your credentials and try again.")
-        print("See `cyto config update --help` for other CVAT-related settings")
-        return
-
-    print("Authentication successful. Saving credentials.")
-    settings.cvat_username = cvat_username
-    settings.cvat_password = cvat_password
-    settings.save()
-
-
 config_group.add_command(show_config)
 config_group.add_command(update_config)
-config_group.add_command(cvat_auth)
