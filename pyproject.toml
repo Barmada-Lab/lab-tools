@@ -37,7 +37,7 @@ pystackreg = "^0.2.6"
 lifelines = "^0.27.8"
 largestinteriorrectangle = "^0.2.0"
 cvat-sdk = "2.10.0"
-stardist = "^0.8.5"
+stardist = "^0.9.1"
 pyarrow = "15.0.0"
 hdaf-filter = "^0.1.1"
 h5py = "^3.10.0"
@@ -45,8 +45,8 @@ textual = "0.53.0" # explicit dependency to avoid trogon incompatibility with 0.
 more-itertools = "^10.2.0"
 celery = "^5.4.0"
 redis = "^5.0.4"
-tensorflow-cpu = "2.15.0"
 pygithub = "^2.3.0"
+tensorflow = "^2.16.1"
 
 [tool.poetry.group.dev]
 optional = true
@@ -56,6 +56,12 @@ pytest = "^5.2"
 flake8 = "^6.1.0"
 ipython = "^8.22.2"
 napari = "^0.4.19"
+
+[tool.poetry.group.macos]
+optional = true
+
+[tool.poetry.group.macos.dependencies]
+tensorflow-metal = "^1.1.0"
 
 [tool.pyright]
 reportPrivateImportUsage = false
