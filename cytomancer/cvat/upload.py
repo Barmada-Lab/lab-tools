@@ -239,7 +239,10 @@ def cli_entry_experiment(
         logger.info(collection.coords[Axes.REGION])
         if tps != "":
             tps_list = [int(tp) for tp in tps.split(",")]
-            collection = collection.isel({Axes.TIME: tps_list})
+            if len(tps_list) > 1:
+                collection = collection.isel({Axes.TIME: tps_list})
+            else:
+                collection = collection.isel({Axes.TIME: tps_list[0]})
         if regions != "":
             regions_list = [region for region in regions.split(",")]
             collection = collection.sel({Axes.REGION: regions_list})
