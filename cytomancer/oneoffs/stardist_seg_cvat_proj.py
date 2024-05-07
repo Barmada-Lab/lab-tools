@@ -5,10 +5,10 @@ from stardist.models import StarDist2D
 from cvat_sdk.models import TaskAnnotationsUpdateRequest, ShapeType, LabeledShapeRequest
 import numpy as np
 
-from cytomancer.cvat.helpers import new_client_from_config
+from cytomancer.cvat.helpers import new_client_from_config, parse_selector
 from cytomancer.cvat.nuc_cyto import get_rles
 from cytomancer.config import config
-from cytomancer.experiment import ExperimentType, parse_selector, Axes
+from cytomancer.experiment import ExperimentType, Axes
 from cytomancer.utils import load_experiment
 
 

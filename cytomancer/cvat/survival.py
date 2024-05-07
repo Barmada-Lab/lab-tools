@@ -8,8 +8,9 @@ import click
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from cytomancer.experiment import parse_selector, Axes
+from cytomancer.experiment import Axes
 from cytomancer.config import config
+from .helpers import parse_selector
 
 
 def extract_survival_result(track, length) -> dict[str, Any]:

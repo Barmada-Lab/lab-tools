@@ -10,8 +10,9 @@ import xarray as xr
 import click
 
 from cytomancer.config import config
-from cytomancer.experiment import ExperimentType, Axes, parse_selector
+from cytomancer.experiment import ExperimentType, Axes
 from .upload import prep_experiment
+from .helpers import parse_selector
 
 
 def rle_to_mask(rle: list[int], width: int, height: int) -> np.ndarray:

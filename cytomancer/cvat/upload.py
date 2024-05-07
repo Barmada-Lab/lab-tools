@@ -18,8 +18,9 @@ import click
 
 from cytomancer.ops import display
 from cytomancer.config import config
-from cytomancer.experiment import Axes, ExperimentType, coord_selector
+from cytomancer.experiment import Axes, ExperimentType
 from cytomancer.utils import load_experiment
+from .helpers import coord_selector
 
 logger = logging.getLogger(__name__)
 

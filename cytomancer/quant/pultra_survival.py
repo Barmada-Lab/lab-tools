@@ -24,8 +24,9 @@ import numpy as np
 from cytomancer.utils import iter_idx_prod
 from cytomancer.utils import load_experiment
 from cytomancer.config import config
-from cytomancer.experiment import ExperimentType, Axes, parse_selector
+from cytomancer.experiment import ExperimentType, Axes
 from cytomancer.cvat.nuc_cyto import rle_to_mask
+from cytomancer.cvat.helpers import parse_selector
 
 logger = logging.getLogger(__name__)
 
