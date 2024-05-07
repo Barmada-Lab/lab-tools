@@ -1,4 +1,5 @@
 import pathlib as pl
+from itertools import groupby
 
 from cvat_sdk import Client, Config
 from skimage.measure import regionprops
@@ -8,12 +9,14 @@ import pandas as pd
 import xarray as xr
 import click
 
-from cytomancer.config import settings
+from cytomancer.config import config
 from cytomancer.experiment import ExperimentType, Axes, parse_selector
 from .upload import prep_experiment
 
 
 def rle_to_mask(rle: list[int], width: int, height: int) -> np.ndarray:
+    assert sum(rle) == width * height, "RLE does not match image size"
+
     decoded = [0] * (width * height)  # create bitmap container
     decoded_idx = 0
     value = 0
@@ -39,6 +42,33 @@ def get_labelled_arr(anno_table, length, height, width):
         patch_mask = rle_to_mask(rle[:-4], patch_width, patch_height)
         channel_stack_mask[frame, top:bottom + 1, left:right + 1][patch_mask] = id
     return channel_stack_mask
+
+
+def mask_to_rle(mask: np.ndarray) -> list[int]:
+    counts = []
+    for i, (value, elements) in enumerate(groupby(mask.flatten())):
+        if i == 0 and value == 1:
+            counts.append(0)
+        counts.append(len(list(elements)))
+    return counts
+
+
+def get_rles(labelled_arr: np.ndarray):
+    rles = []
+    for props in regionprops(labelled_arr):
+        id = props.label
+        mask = labelled_arr == id
+        top, left, bottom, right = props.bbox
+        rle = mask_to_rle(mask[top:bottom, left:right])
+        rle += [left, top, right-1, bottom-1]
+
+        left, top, right, bottom = rle[-4:]
+        patch_height, patch_width = (bottom - top + 1, right - left + 1)
+        patch_mask = rle_to_mask(rle[:-4], patch_width, patch_height)
+
+        assert np.all(patch_mask == mask[top:bottom+1, left:right+1])
+        rles.append((id, rle))
+    return rles
 
 
 def enumerate_rois(client: Client, project_id: int):
@@ -277,9 +307,9 @@ def cli_entry(
         mip: bool,
         experiment_type: ExperimentType):
 
-    client = Client(url=settings.cvat_url, config=Config(verify_ssl=False))
-    client.login((settings.cvat_username, settings.cvat_password))
-    org_slug = settings.cvat_org
+    client = Client(url=config.cvat_url, config=Config(verify_ssl=False))
+    client.login((config.cvat_username, config.cvat_password))
+    org_slug = config.cvat_org
     client.organization_slug = org_slug
     api_client = client.api_client
 

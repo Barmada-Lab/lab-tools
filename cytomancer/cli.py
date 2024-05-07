@@ -11,9 +11,9 @@ from cytomancer.cvat.upload import cli_entry_experiment
 from cytomancer.cvat.nuc_cyto import cli_entry as cvat_nuc_cyto
 
 from cytomancer.updater import check_for_updates
-from cytomancer.config import settings
+from cytomancer.config import config
 
-logging.basicConfig(level=settings.log_level)
+logging.basicConfig(level=config.log_level)
 
 
 @tui()
@@ -68,16 +68,16 @@ def cvat_auth(cvat_username, cvat_password):
     Update CVAT credentials. Run this with no arguments to get an interactive prompt that hides your password.
     """
 
-    print(f"\nTesting CVAT connection to server {settings.cvat_url}...")
-    if not test_cvat_connection(settings.cvat_url, cvat_username, cvat_password):
+    print(f"\nTesting CVAT connection to server {config.cvat_url}...")
+    if not test_cvat_connection(config.cvat_url, cvat_username, cvat_password):
         print("Connection failed. Please verify your credentials and try again.")
         print("See `cyto config update --help` for other CVAT-related settings")
         return
 
     print("Authentication successful. Saving credentials.")
-    settings.cvat_username = cvat_username
-    settings.cvat_password = cvat_password
-    settings.save()
+    config.cvat_username = cvat_username
+    config.cvat_password = cvat_password
+    config.save()
 
 
 cvat_group.add_command(cvat_auth)
@@ -100,7 +100,7 @@ def show_config():
     Display current configuration settings.
     """
     print("\nCurrent settings:")
-    for k, v in settings.model_dump().items():
+    for k, v in config.model_dump().items():
         if k == "cvat_password":
             v = "*" * len(v)
         print(f"\t{k}: {v}")
@@ -110,7 +110,7 @@ def show_config():
 # Hacky little thing that adds options for all settings to set_config
 def settings_options():
     def combined_decorator(func):
-        for k, v in reversed(settings.model_dump().items()):
+        for k, v in reversed(config.model_dump().items()):
             if k == "cvat_password" or k == "cvat_username":
                 continue
             decorator = click.option(f"--{k}", default=v, show_default=True)
@@ -126,9 +126,52 @@ def update_config(**kwargs):
     Update config
     """
     for k, v in kwargs.items():
-        setattr(settings, k, v)
-    settings.save()
+        setattr(config, k, v)
+    config.save()
 
 
 config_group.add_command(show_config)
 config_group.add_command(update_config)
+
+# ----------------- BEGIN ONEOFFS GROUP -----------------
+
+
+@cli.group("oneoffs", help="A place for scripts that I wrote once and might be useful again")
+@click.pass_context
+def oneoffs_group(ctx):
+    ctx.ensure_object(dict)
+
+
+@click.command("stardist-seg-cvat-proj")
+@click.argument("project_name")
+@click.argument("experiment_dir", type=click.Path(exists=True, path_type=Path))
+@click.option("--experiment-type", "-t", type=ExperimentType, default=ExperimentType.CQ1, show_default=True, help="Type of experiment.")
+@click.option("--channel", "-c", default="DAPI", show_default=True, help="Channel to segment.")
+@click.option("--label-name", "-l", default="dead", show_default=True, help="Name of the label to create.")
+@click.option("--adapteq-clip-limit", "-c", default=0.01, show_default=True, help="Clip limit for adaptive histogram equalization.")
+@click.option("--median-filter-d", "-m", default=5, show_default=True, help="Diameter of the median filter to apply to the images before segmentation.")
+@click.option("--model-name", "-m", default="2d_versatile_fluo", show_default=True, help="Name of predefined StarDist model to use.")
+def stardist_seg_cvat_proj(
+        project_name: str,
+        experiment_dir: Path,
+        experiment_type: ExperimentType,
+        channel: str,
+        label_name: str,
+        adapteq_clip_limit: float,
+        median_filter_d: int,
+        model_name: str):
+
+    """ Segment images in a CVAT project using StarDist. """
+    from cytomancer.oneoffs.tasks import stardist_seg_cvat_proj_run
+    stardist_seg_cvat_proj_run.delay(
+        project_name,
+        experiment_dir,
+        experiment_type,
+        channel,
+        label_name,
+        adapteq_clip_limit,
+        median_filter_d,
+        model_name)
+
+
+oneoffs_group.add_command(stardist_seg_cvat_proj)

@@ -59,12 +59,21 @@ def _parse_field_selector(arr: xr.DataArray | None, selector: str):
     else:
         target_dtype = arr[axis].dtype
 
-    field_value_tokens = np.array(field_values.split(VALUE_DELIM)).astype(target_dtype)
-    if field_value_tokens.size == 1:
-        field_value = field_value_tokens[0]
-        return (axis, field_value)
-    else:
-        return (axis, field_value_tokens)
+    match axis:
+        case Axes.TIME:
+            field_value_tokens = np.array([np.datetime64(int(ts), 'ns')for ts in field_values.split(VALUE_DELIM)])
+            if field_value_tokens.size == 1:
+                field_value = field_value_tokens[0]
+                return (axis, field_value)
+            else:
+                return (axis, field_value_tokens)
+        case _:
+            field_value_tokens = np.array(field_values.split(VALUE_DELIM)).astype(target_dtype)
+            if field_value_tokens.size == 1:
+                field_value = field_value_tokens[0]
+                return (axis, field_value)
+            else:
+                return (axis, field_value_tokens)
 
 
 def coord_selector(arr: xr.DataArray) -> str:

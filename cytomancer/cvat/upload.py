@@ -17,7 +17,7 @@ import tifffile
 import click
 
 from cytomancer.ops import display
-from cytomancer.config import settings
+from cytomancer.config import config
 from cytomancer.experiment import Axes, ExperimentType, coord_selector
 from cytomancer.utils import load_experiment
 
@@ -154,10 +154,10 @@ def cli_entry_basic(
         project_name: str,
         collection_base: pl.Path):
 
-    client = CvatClient(url=settings.cvat_url, config=Config(verify_ssl=False))
-    client.login((settings.cvat_username, settings.cvat_password))
+    client = CvatClient(url=config.cvat_url, config=Config(verify_ssl=False))
+    client.login((config.cvat_username, config.cvat_password))
 
-    org_slug = settings.cvat_org
+    org_slug = config.cvat_org
     client.organization_slug = org_slug
 
     (data, _) = client.api_client.projects_api.list(search=project_name)
@@ -218,10 +218,10 @@ def cli_entry_experiment(
     else:
         collections = [prep_experiment(experiment_base, mip, composite, experiment_type, rescale, channel_list, apply_psuedocolor=True, fillna=fillna)]  # noqa: E501
 
-    client = CvatClient(url=settings.cvat_url)
-    client.login((settings.cvat_username, settings.cvat_password))
+    client = CvatClient(url=config.cvat_url)
+    client.login((config.cvat_username, config.cvat_password))
 
-    org_slug = settings.cvat_org
+    org_slug = config.cvat_org
     client.organization_slug = org_slug
 
     (data, _) = client.api_client.projects_api.list(search=project_name)

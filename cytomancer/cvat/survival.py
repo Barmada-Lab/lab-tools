@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from cytomancer.experiment import parse_selector, Axes
-from cytomancer.config import settings
+from cytomancer.config import config
 
 
 def extract_survival_result(track, length) -> dict[str, Any]:
@@ -75,9 +75,9 @@ def analyze_survival(
 @click.option("--well-csv", type=click.Path(path_type=pl.Path), default=None)
 def cli_entry(project_name: str, output_dir: pl.Path, well_csv: pl.Path | None):
 
-    client = Client(url=settings.cvat_url, config=Config(verify_ssl=False))
-    client.login((settings.cvat_username, settings.cvat_password))
-    org_slug = settings.cvat_org
+    client = Client(url=config.cvat_url, config=Config(verify_ssl=False))
+    client.login((config.cvat_username, config.cvat_password))
+    org_slug = config.cvat_org
     client.organization_slug = org_slug
     api_client = client.api_client
 

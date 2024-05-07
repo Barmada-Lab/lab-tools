@@ -23,19 +23,19 @@ import numpy as np
 
 from cytomancer.utils import iter_idx_prod
 from cytomancer.utils import load_experiment
-from cytomancer.config import settings
+from cytomancer.config import config
 from cytomancer.experiment import ExperimentType, Axes, parse_selector
 from cytomancer.cvat.nuc_cyto import rle_to_mask
 
 logger = logging.getLogger(__name__)
 
-NUCLEI_EXPERIMENT_PATH: Path = settings.collections_path / "nuclei_survival_svm_dataset"
+NUCLEI_EXPERIMENT_PATH: Path = config.collections_path / "nuclei_survival_svm_dataset"
 NUCLEI_EXPERIMENT_TYPE: ExperimentType = ExperimentType.CQ1
 
 NUCLEI_PROJECT_ID: int = 102
 NUCLEI_LIVE_LABEL_ID: int = 112
 
-SVM_MODEL_PATH = settings.models_path / "nuclei_survival_svm.joblib"
+SVM_MODEL_PATH = config.models_path / "nuclei_survival_svm.joblib"
 
 DAPI_SNR_THRESHOLD = 2
 
@@ -66,8 +66,8 @@ def get_features(mask, dapi, gfp, rfp, field_medians):
 
 def train(nuclei_project_id: int, nuclei_live_label_id: int, nuclei_experiment: xr.DataArray, feature_f=get_features):
 
-    client = CVATClient(settings.cvat_url)
-    client.login((settings.cvat_username, settings.cvat_password))
+    client = CVATClient(config.cvat_url)
+    client.login((config.cvat_username, config.cvat_password))
 
     tasks = client.projects.retrieve(nuclei_project_id).get_tasks()
 
@@ -256,7 +256,7 @@ def quantify(intensity: xr.DataArray, seg_model: StarDist2D, classifier: Pipelin
 
 def run(experiment_path: Path, experiment_type: ExperimentType, save_annotations: bool):
     fmt = "main|%(asctime)s|%(name)s|%(levelname)s: %(message)s"
-    logging.basicConfig(level=settings.log_level, format=fmt)
+    logging.basicConfig(level=config.log_level, format=fmt)
 
     client = get_client()
     logger.info(f"Connected to dask scheduler {client.scheduler}")
@@ -268,7 +268,7 @@ def run(experiment_path: Path, experiment_type: ExperimentType, save_annotations
         # disable GPU for workers. Although stardist is GPU accelerated, it's
         # faster to run many CPU workers in parallel
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-        logging.basicConfig(level=settings.log_level, format=fmt)
+        logging.basicConfig(level=config.log_level, format=fmt)
         logging.info(dask_worker.id)
 
     client.register_worker_callbacks(init_logging)

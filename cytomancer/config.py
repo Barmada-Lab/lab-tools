@@ -6,7 +6,7 @@ from pathlib import Path
 USER_CONFIG_PATH = Path.home() / ".config" / "cytomancer.env"
 
 
-class Settings(BaseSettings):
+class CytomancerConfig(BaseSettings):
 
     log_level: str = "INFO"
 
@@ -47,4 +47,4 @@ class Settings(BaseSettings):
         extra = "ignore"
 
 
-settings = Settings()
+config = CytomancerConfig()
