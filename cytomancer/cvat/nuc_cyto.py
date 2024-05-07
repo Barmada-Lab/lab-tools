@@ -1,9 +1,7 @@
 import pathlib as pl
-from itertools import groupby
 
 from cvat_sdk import Client, Config
 from skimage.measure import regionprops
-from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -12,80 +10,7 @@ import click
 from cytomancer.config import config
 from cytomancer.experiment import ExperimentType, Axes
 from .upload import prep_experiment
-from .helpers import parse_selector
-
-
-def rle_to_mask(rle: list[int], width: int, height: int) -> np.ndarray:
-    assert sum(rle) == width * height, "RLE does not match image size"
-
-    decoded = [0] * (width * height)  # create bitmap container
-    decoded_idx = 0
-    value = 0
-
-    for v in rle:
-        decoded[decoded_idx:decoded_idx + v] = [value] * v
-        decoded_idx += v
-        value = abs(value - 1)
-
-    decoded = np.array(decoded, dtype=bool)
-    decoded = decoded.reshape((height, width))  # reshape to image size
-    return decoded
-
-
-def get_labelled_arr(anno_table, length, height, width):
-    channel_stack_mask = np.zeros((length, height, width), dtype=int)
-    for shape in anno_table.shapes:
-        id = shape.id
-        frame = shape.frame
-        rle = list(map(int, shape.points))
-        left, top, right, bottom = rle[-4:]
-        patch_height, patch_width = (bottom - top + 1, right - left + 1)
-        patch_mask = rle_to_mask(rle[:-4], patch_width, patch_height)
-        channel_stack_mask[frame, top:bottom + 1, left:right + 1][patch_mask] = id
-    return channel_stack_mask
-
-
-def mask_to_rle(mask: np.ndarray) -> list[int]:
-    counts = []
-    for i, (value, elements) in enumerate(groupby(mask.flatten())):
-        if i == 0 and value == 1:
-            counts.append(0)
-        counts.append(len(list(elements)))
-    return counts
-
-
-def get_rles(labelled_arr: np.ndarray):
-    rles = []
-    for props in regionprops(labelled_arr):
-        id = props.label
-        mask = labelled_arr == id
-        top, left, bottom, right = props.bbox
-        rle = mask_to_rle(mask[top:bottom, left:right])
-        rle += [left, top, right-1, bottom-1]
-
-        left, top, right, bottom = rle[-4:]
-        patch_height, patch_width = (bottom - top + 1, right - left + 1)
-        patch_mask = rle_to_mask(rle[:-4], patch_width, patch_height)
-
-        assert np.all(patch_mask == mask[top:bottom+1, left:right+1])
-        rles.append((id, rle))
-    return rles
-
-
-def enumerate_rois(client: Client, project_id: int):
-    tasks = client.projects.retrieve(project_id).get_tasks()
-    for task_meta in tqdm(tasks):
-        jobs = task_meta.get_jobs()
-        job_id = jobs[0].id
-        job_metadata, _ = client.api_client.jobs_api.retrieve_data_meta(job_id)
-        frames = job_metadata.frames  # type: ignore
-        frame_names = [frame.name for frame in frames]
-        width = frames[0].width
-        height = frames[0].height
-        anno_table = task_meta.get_annotations()
-        labelled_arr = get_labelled_arr(anno_table, len(frames), height, width)
-        task_name = task_meta.name
-        yield task_name, frame_names, labelled_arr
+from .helpers import enumerate_rois
 
 
 # creates one-to-one mapping of nuclei to soma, based on maximum overlap
@@ -110,9 +35,8 @@ def measure_nuc_cyto_ratio_nd2s(  # noqa: C901
         measurement_channels: list[str]):
 
     df = pd.DataFrame()
-    for task_name, frame_names, labelled_arr in enumerate_rois(client, project_id):
+    for selector, labelled_arr in enumerate_rois(client, project_id):
 
-        selector = parse_selector(task_name)
         region = selector.pop(Axes.REGION)
         collection = collections[region]  # type: ignore
         intensity_arr = collection.sel(selector)
@@ -186,7 +110,8 @@ def measure_nuc_cyto_ratio_nd2s(  # noqa: C901
         colocalized = dict(colocalize_rois(nuclear_mask, soma_mask))
         nuc_df["id"] = nuc_df["id"].map(colocalized)
         merged = nuc_df.merge(cyto_df, on="id").merge(soma_df, on="id")
-        merged.insert(0, "label", task_name)
+        merged.insert(0, "field", selector[Axes.FIELD])
+        merged.insert(0, "region", selector[Axes.REGION])
         df = pd.concat((df, merged))
 
     return df
@@ -201,17 +126,11 @@ def measure_nuc_cyto_ratio(  # noqa: C901
         measurement_channels: list[str]):
 
     df = pd.DataFrame()
-    for task_name, frame_names, labelled_arr in enumerate_rois(client, project_id):
+    for selector, labelled_arr in enumerate_rois(client, project_id):
 
         # NEW WAY, BETTER WAY, BUT DOESN'T WORK WITH OLD EXPERIMENTS :(
-        selector = parse_selector(task_name)
         intensity_arr = collection.sel(selector)
         channels = selector[Axes.CHANNEL].tolist()
-
-        # OLD WAY, BAD WAY, BUT WORKS WITH OLD EXPERIMENTS :(
-        # region, field1, field2 = task_name.split("_")
-        # intensity_arr = collection.sel({Axes.REGION: region, Axes.FIELD: f"{field1}_{field2}"}).load()
-        # channels = [name.split(".")[0].split("_")[-1] for name in frame_names]
 
         nuc_idx = channels.index(nuc_channel)
         soma_idx = channels.index(soma_channel)
@@ -284,7 +203,8 @@ def measure_nuc_cyto_ratio(  # noqa: C901
         colocalized = dict(colocalize_rois(nuclear_mask, soma_mask))
         nuc_df["id"] = nuc_df["id"].map(colocalized)
         merged = nuc_df.merge(cyto_df, on="id", suffixes=("_nuc", "_cyto"))
-        merged.insert(0, "label", task_name)
+        merged.insert(0, "field", selector[Axes.FIELD])
+        merged.insert(0, "region", selector[Axes.REGION])
         df = pd.concat((df, merged))
 
     return df

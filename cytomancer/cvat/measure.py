@@ -1,60 +1,15 @@
 import pathlib as pl
 
 from cvat_sdk import Client, Config
-from tqdm import tqdm
 from skimage.measure import regionprops
 import pandas as pd
 import xarray as xr
-import numpy as np
 import click
 
 from cytomancer.config import config
-from cytomancer.experiment import ExperimentType
+from cytomancer.experiment import ExperimentType, Axes
 from .upload import prep_experiment
-
-
-def rle_to_mask(rle: list[int], width: int, height: int) -> np.ndarray:
-    decoded = [0] * (width * height)  # create bitmap container
-    decoded_idx = 0
-    value = 0
-
-    for v in rle:
-        decoded[decoded_idx: decoded_idx + v] = [value] * v
-        decoded_idx += v
-        value = abs(value - 1)
-
-    decoded = np.array(decoded, dtype=bool)
-    decoded = decoded.reshape((height, width))  # reshape to image size
-    return decoded
-
-
-def get_labelled_arr(anno_table, length, height, width):
-    channel_stack_mask = np.zeros((length, height, width), dtype=int)
-    for shape in anno_table.shapes:
-        id = shape.id
-        frame = shape.frame
-        rle = list(map(int, shape.points))
-        left, top, right, bottom = rle[-4:]
-        patch_height, patch_width = (bottom - top + 1, right - left + 1)
-        patch_mask = rle_to_mask(rle[:-4], patch_width, patch_height).astype(int) * id
-        channel_stack_mask[frame, top:bottom + 1, left:right + 1] += patch_mask
-    return channel_stack_mask
-
-
-def enumerate_rois(client: Client, project_id: int):
-    tasks = client.projects.retrieve(project_id).get_tasks()
-    for task_meta in tqdm(tasks):
-        jobs = task_meta.get_jobs()
-        job_id = jobs[0].id
-        job_metadata, _ = client.api_client.jobs_api.retrieve_data_meta(job_id)
-        frames = job_metadata.frames  # type: ignore
-        frame_names = [frame.name for frame in frames]
-        width = frames[0].width
-        height = frames[0].height
-        anno_table = task_meta.get_annotations()
-        labelled_arr = get_labelled_arr(anno_table, len(frames), height, width)
-        task_name = task_meta.name
-        yield task_name, frame_names, labelled_arr
+from .helpers import enumerate_rois
 
 
 def measure_2d(
@@ -64,17 +19,17 @@ def measure_2d(
         measurement_channels: list[str]):
 
     df = pd.DataFrame()
-    for task_name, _, labelled_arr in enumerate_rois(client, project_id):
-        # collection_name = "_".join(tokens[:-1]) + ".nd2"
+    for selector, labelled_arr in enumerate_rois(client, project_id):
         collection = list(collections.values())[0]
-        intensity_arr = collection.sel(field=task_name)
+        intensity_arr = collection.sel(selector)
         for rois in labelled_arr:
 
             field_measurements = []
             for props in regionprops(rois):
                 field_measurements.append({
                     "id": props.label,
-                    "collection": task_name,
+                    "region": selector[Axes.REGION],
+                    "field": selector[Axes.FIELD],
                     "area": props.area,
                 })
             field_df = pd.DataFrame.from_records(field_measurements)
