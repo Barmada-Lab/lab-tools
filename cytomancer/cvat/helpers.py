@@ -111,17 +111,20 @@ def mask_to_rle(mask: np.ndarray) -> list[int]:
     return counts
 
 
-def get_labelled_arr(anno_table, length, height, width):
-    channel_stack_mask = np.zeros((length, height, width), dtype=int)
+def get_obj_arr_and_labels(anno_table, length, height, width):
+    obj_arr = np.zeros((length, height, width), dtype=int)
+    label_arr = np.zeros((length, height, width), dtype=int)
     for shape in anno_table.shapes:
-        id = shape.id
+        obj_id = shape.id
+        label_id = shape.label_id
         frame = shape.frame
         rle = list(map(int, shape.points))
         left, top, right, bottom = rle[-4:]
         patch_height, patch_width = (bottom - top + 1, right - left + 1)
         patch_mask = rle_to_mask(rle[:-4], patch_width, patch_height)
-        channel_stack_mask[frame, top:bottom + 1, left:right + 1][patch_mask] = id
-    return channel_stack_mask
+        obj_arr[frame, top:bottom + 1, left:right + 1][patch_mask] = obj_id
+        label_arr[frame, top:bottom + 1, left:right + 1][patch_mask] = label_id
+    return obj_arr, label_arr
 
 
 def get_rles(labelled_arr: np.ndarray):
@@ -144,19 +147,16 @@ def get_rles(labelled_arr: np.ndarray):
 
 def enumerate_rois(client: Client, project_id: int):
     tasks = client.projects.retrieve(project_id).get_tasks()
-    tasks = client.projects.retrieve(project_id).get_tasks()
     for task_meta in tasks:
         jobs = task_meta.get_jobs()
-        job_id = jobs[0].id
-        job_metadata, _ = client.api_client.jobs_api.retrieve_data_meta(job_id)
-        frames = job_metadata.frames  # type: ignore
-        width = frames[0].width
-        height = frames[0].height
+        job_id = jobs[0].id  # we assume there is only one job per task
+        job_metadata = client.jobs.retrieve(job_id).get_meta()
+        frames = job_metadata.frames
+        height, width = frames[0].height, frames[0].width
         anno_table = task_meta.get_annotations()
-        labelled_arr = get_labelled_arr(anno_table, len(frames), height, width)
-        task_name = task_meta.name
-        selector = parse_selector(task_name)
-        yield selector, labelled_arr
+        obj_arr, label_arr = get_obj_arr_and_labels(anno_table, len(frames), height, width)
+        selector = parse_selector(task_meta.name)
+        yield selector, obj_arr, label_arr
 
 
 def get_project(client: Client, project_name: str):
@@ -169,15 +169,9 @@ def get_project(client: Client, project_name: str):
     return None
 
 
-def load_project_segmentation(client: Client, project_id: int, intensity: xr.DataArray):
+def get_project_label_map(client: Client, project_id: int):
     """
-    Creates a DataArray containing all the masks for a given project, and creates an xarray Dataset
-    containing the original intensity array and the generated mask array.
+    Returns a list of all labelled arrays for a given project.
     """
-    labels = xr.zeros_like(intensity).load()
-    for selector, labelled_arr in enumerate_rois(client, project_id):
-        labels.loc[selector] = labelled_arr
-    return xr.Dataset({
-        "intensity": intensity,
-        "labels": labels
-    })
+    labels = {label.name: label.id for label in client.projects.retrieve(project_id).get_labels()}
+    return labels

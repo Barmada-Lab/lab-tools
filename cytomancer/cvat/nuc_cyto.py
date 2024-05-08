@@ -35,7 +35,7 @@ def measure_nuc_cyto_ratio_nd2s(  # noqa: C901
         measurement_channels: list[str]):
 
     df = pd.DataFrame()
-    for selector, labelled_arr in enumerate_rois(client, project_id):
+    for selector, obj_arr, _ in enumerate_rois(client, project_id):
 
         region = selector.pop(Axes.REGION)
         collection = collections[region]  # type: ignore
@@ -45,8 +45,8 @@ def measure_nuc_cyto_ratio_nd2s(  # noqa: C901
         nuc_idx = np.where(channels == nuc_channel)
         soma_idx = np.where(channels == soma_channel)
 
-        soma_mask = labelled_arr[soma_idx]
-        nuclear_mask = labelled_arr[nuc_idx]
+        soma_mask = obj_arr[soma_idx]
+        nuclear_mask = obj_arr[nuc_idx]
         cyto_mask = soma_mask * (~nuclear_mask.astype(bool)).astype(np.uint8)
 
         if cyto_mask.max() == 0 or nuclear_mask.max() == 0:
@@ -126,7 +126,7 @@ def measure_nuc_cyto_ratio(  # noqa: C901
         measurement_channels: list[str]):
 
     df = pd.DataFrame()
-    for selector, labelled_arr in enumerate_rois(client, project_id):
+    for selector, obj_arr, _ in enumerate_rois(client, project_id):
 
         # NEW WAY, BETTER WAY, BUT DOESN'T WORK WITH OLD EXPERIMENTS :(
         intensity_arr = collection.sel(selector)
@@ -135,8 +135,8 @@ def measure_nuc_cyto_ratio(  # noqa: C901
         nuc_idx = channels.index(nuc_channel)
         soma_idx = channels.index(soma_channel)
 
-        soma_mask = labelled_arr[soma_idx]
-        nuclear_mask = labelled_arr[nuc_idx]
+        soma_mask = obj_arr[soma_idx]
+        nuclear_mask = obj_arr[nuc_idx]
         cyto_mask = soma_mask * (~nuclear_mask.astype(bool)).astype(np.uint8)
 
         if cyto_mask.max() == 0 or nuclear_mask.max() == 0:

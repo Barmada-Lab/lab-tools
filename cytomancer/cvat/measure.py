@@ -19,10 +19,10 @@ def measure_2d(
         measurement_channels: list[str]):
 
     df = pd.DataFrame()
-    for selector, labelled_arr in enumerate_rois(client, project_id):
+    for selector, obj_arr, _ in enumerate_rois(client, project_id):
         collection = list(collections.values())[0]
         intensity_arr = collection.sel(selector)
-        for rois in labelled_arr:
+        for rois in obj_arr:
 
             field_measurements = []
             for props in regionprops(rois):
