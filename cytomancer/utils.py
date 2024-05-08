@@ -1,7 +1,6 @@
 from itertools import product
 import pathlib as pl
 
-import click
 import xarray as xr
 
 from cytomancer.io.legacy_loader import load_legacy, load_legacy_icc
@@ -51,21 +50,6 @@ def iter_idx_prod(arr: xr.DataArray | xr.Dataset, ignore_dims=[]):
     for coords in product(*idxs):
         selector = dict(zip(indices, coords))
         yield arr.sel(selector)
-
-
-def experiment_path_argument(**kwargs):
-    return click.argument(
-        "experiment-path",
-        type=click.Path(exists=True, file_okay=False, path_type=pl.Path),
-        **kwargs)
-
-
-def experiment_type_argument(**kwargs):
-    return click.argument(
-        "experiment-type",
-        type=click.Choice(ExperimentType.__members__),  # type: ignore
-        callback=lambda c, p, v: getattr(ExperimentType, v) if v else None,
-        **kwargs)
 
 
 def get_user_confirmation(prompt, default=None):

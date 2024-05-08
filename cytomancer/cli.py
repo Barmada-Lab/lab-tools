@@ -4,7 +4,7 @@ import logging
 from trogon import tui
 import click
 
-from cytomancer.utils import experiment_path_argument, test_cvat_connection
+from cytomancer.utils import test_cvat_connection
 from cytomancer.experiment import ExperimentType
 from cytomancer.cvat.survival import cli_entry as cvat_survival
 from cytomancer.cvat.upload import cli_entry_experiment
@@ -14,6 +14,21 @@ from cytomancer.updater import check_for_updates
 from cytomancer.config import config
 
 logging.basicConfig(level=config.log_level)
+
+
+def experiment_dir_argument(**kwargs):
+    return click.argument(
+        "experiment_dir",
+        type=click.Path(exists=True, file_okay=False, path_type=Path),
+        **kwargs)
+
+
+def experiment_type_argument(**kwargs):
+    return click.argument(
+        "experiment_type",
+        type=click.Choice(ExperimentType.__members__),  # type: ignore
+        callback=lambda c, p, v: getattr(ExperimentType, v) if v else None,
+        **kwargs)
 
 
 @tui()
@@ -27,7 +42,7 @@ def cli(ctx):
 # ----------------- BEGIN QUANT GROUP -----------------
 
 @click.command("pult-surv")
-@experiment_path_argument()
+@experiment_dir_argument()
 @click.option("--save-annotations", is_flag=True, help="Save annotated stacks to results folder")
 @click.option("--run-sync", is_flag=True, help="Run synchronously, skipping the task queue.")
 def pultra_survival(experiment_path: Path, save_annotations: bool, sync: bool):
@@ -143,14 +158,14 @@ def oneoffs_group(ctx):
 
 
 @click.command("stardist-seg-cvat-proj")
-@click.argument("project_name")
-@click.argument("experiment_dir", type=click.Path(exists=True, path_type=Path))
-@click.option("--experiment-type", "-t", type=ExperimentType, default=ExperimentType.CQ1, show_default=True, help="Type of experiment.")
+@click.argument("project_name", type=str)
+@experiment_dir_argument()
+@experiment_type_argument()
 @click.option("--channel", "-c", default="DAPI", show_default=True, help="Channel to segment.")
 @click.option("--label-name", "-l", default="dead", show_default=True, help="Name of the label to create.")
 @click.option("--adapteq-clip-limit", "-c", default=0.01, show_default=True, help="Clip limit for adaptive histogram equalization.")
 @click.option("--median-filter-d", "-m", default=5, show_default=True, help="Diameter of the median filter to apply to the images before segmentation.")
-@click.option("--model-name", "-m", default="2d_versatile_fluo", show_default=True, help="Name of predefined StarDist model to use.")
+@click.option("--model-name", "-m", default="2D_versatile_fluo", show_default=True, help="Name of predefined StarDist model to use.")
 def stardist_seg_cvat_proj(
         project_name: str,
         experiment_dir: Path,
@@ -162,8 +177,8 @@ def stardist_seg_cvat_proj(
         model_name: str):
 
     """ Segment images in a CVAT project using StarDist. """
-    from cytomancer.oneoffs.tasks import stardist_seg_cvat_proj_run
-    stardist_seg_cvat_proj_run.delay(
+    from cytomancer.oneoffs.stardist_seg_cvat_proj import run
+    run(
         project_name,
         experiment_dir,
         experiment_type,
