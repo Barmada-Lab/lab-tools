@@ -19,6 +19,9 @@ class Pultra_Signal_Area_FeatureExtractor(BaseEstimator, TransformerMixin):
     - dapi: DAPI intensity image
     """
 
+    def __init__(self, dapi_snr_thresh: float = 2.0):
+        self.dapi_snr_thresh = dapi_snr_thresh
+
     def fit(self, X, y=None):
         return self
 
@@ -42,8 +45,13 @@ class Pultra_Signal_Area_FeatureExtractor(BaseEstimator, TransformerMixin):
 
         for props in regionprops(labels):
             mask = labels == props.label
+
+            dapi_signal = np.median(dapi[mask]) / dapi_median
+            if dapi_signal < self.dapi_snr_thresh:
+                continue
+
             yield {
-                "dapi_signal": np.median(dapi[mask]) / dapi_median,
+                "dapi_signal": dapi_signal,
                 "gfp_signal": np.median(gfp[mask]) / gfp_median,
                 "rfp_signal": np.median(rfp[mask]) / rfp_median,
                 "size": mask.sum()
@@ -53,8 +61,8 @@ class Pultra_Signal_Area_FeatureExtractor(BaseEstimator, TransformerMixin):
         assert isinstance(X, pd.DataFrame), f"Expected DataFrame, got {type(X)}"
         assert X.columns.isin(["labels", "gfp", "rfp", "dapi"]).all(), \
             f"Missing columns in input DataFrame; expected ['labels', 'gfp', 'rfp', 'dapi'], got {X.columns.values}"
-        vecs = [vec for df in X.apply(self.transform_row, axis=1) for vec in df]  # type: ignore
-        return pd.DataFrame.from_records(vecs)
+        records = [rec for df in X.apply(self.transform_row, axis=1) for rec in df]  # type: ignore
+        return pd.DataFrame.from_records(records)
 
 
 def build_pipeline():

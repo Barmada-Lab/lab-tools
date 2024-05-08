@@ -44,10 +44,6 @@ def run(project_name: str, experiment_dir: Path, experiment_type: ExperimentType
     for task in tasks:
         selector = parse_selector(task.name)
 
-        if selector[Axes.REGION][0].startswith("G"):
-            print("skipping")
-            continue
-
         chan_idx = int(np.where(selector[Axes.CHANNEL] == channel)[0][0])
         selector[Axes.CHANNEL] = np.array(channel)
         frame = intensity.sel(selector).values
