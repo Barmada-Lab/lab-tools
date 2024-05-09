@@ -1,5 +1,4 @@
 from pathlib import Path
-import logging
 
 from trogon import tui
 import click
@@ -12,8 +11,6 @@ from cytomancer.cvat.nuc_cyto import cli_entry as cvat_nuc_cyto
 
 from cytomancer.updater import check_for_updates
 from cytomancer.config import config
-
-logging.basicConfig(level=config.log_level)
 
 
 def experiment_dir_argument(**kwargs):

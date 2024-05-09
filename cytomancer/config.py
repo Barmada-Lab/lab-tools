@@ -1,3 +1,5 @@
+import logging
+
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from pathlib import Path
@@ -48,3 +50,4 @@ class CytomancerConfig(BaseSettings):
 
 
 config = CytomancerConfig()
+logging.basicConfig(level=config.log_level)
