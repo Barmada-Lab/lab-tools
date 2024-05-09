@@ -111,7 +111,7 @@ def measure_nuc_cyto_ratio_nd2s(  # noqa: C901
         nuc_df["id"] = nuc_df["id"].map(colocalized)
         merged = nuc_df.merge(cyto_df, on="id").merge(soma_df, on="id")
         merged.insert(0, "field", selector[Axes.FIELD])
-        merged.insert(0, "region", selector[Axes.REGION])
+        merged.insert(0, "region", region)
         df = pd.concat((df, merged))
 
     return df
