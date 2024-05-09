@@ -9,7 +9,7 @@ from cytomancer.experiment import Axes
 from . import ioutils
 
 
-def load_legacy(base: pl.Path, fillna: bool) -> xr.Dataset:
+def load_legacy(base: pl.Path, fillna: bool) -> xr.DataArray:
     timepoint_tags = sorted({int(path.name.replace("T", "")) for path in base.glob("raw_imgs/*/*")})
     region_tags = set()
     field_id_tags = set()
@@ -48,35 +48,24 @@ def load_legacy(base: pl.Path, fillna: bool) -> xr.Dataset:
         channels.append(da.stack(timepoints))
     plate = da.stack(channels)
 
-    dataset = xr.Dataset(
-        data_vars=dict(
-            intensity=xr.DataArray(
-                plate,
-                dims=[Axes.CHANNEL, Axes.TIME, Axes.REGION, Axes.FIELD, Axes.Y, Axes.X],
-                coords={
-                    Axes.CHANNEL: channel_tags,
-                    Axes.TIME: timepoint_tags,
-                    Axes.REGION: region_tags,
-                    Axes.FIELD: field_tags,
-                }
-            ).chunk({
-                Axes.CHANNEL: -1,
-                Axes.TIME: -1,
-                Axes.REGION: 1,
-                Axes.FIELD: 1,
-                Axes.Y: -1,
-                Axes.X: -1
-            })
-        )
+    intensity = xr.DataArray(
+        plate,
+        dims=[Axes.CHANNEL, Axes.TIME, Axes.REGION, Axes.FIELD, Axes.Y, Axes.X],
+        coords={
+            Axes.CHANNEL: channel_tags,
+            Axes.TIME: timepoint_tags,
+            Axes.REGION: region_tags,
+            Axes.FIELD: field_tags,
+        }
     )
 
     if fillna:
-        dataset = dataset.ffill(Axes.TIME).bfill(Axes.TIME).ffill(Axes.FIELD).bfill(Axes.FIELD)
+        intensity = intensity.ffill(Axes.TIME).bfill(Axes.TIME).ffill(Axes.FIELD).bfill(Axes.FIELD)
 
-    return dataset
+    return intensity
 
 
-def load_legacy_icc(base: pl.Path, fillna: bool) -> xr.Dataset:
+def load_legacy_icc(base: pl.Path, fillna: bool) -> xr.DataArray:
     timepoint_tags = sorted({int(path.name.replace("T", "")) for path in base.glob("raw_imgs/*/*")})
     region_tags = set()
     field_id_tags = set()
@@ -115,22 +104,18 @@ def load_legacy_icc(base: pl.Path, fillna: bool) -> xr.Dataset:
         channels.append(da.stack(timepoints))
     plate = da.stack(channels)
 
-    dataset = xr.Dataset(
-        data_vars=dict(
-            intensity=xr.DataArray(
-                plate,
-                dims=[Axes.CHANNEL, Axes.REGION, Axes.TIME, Axes.FIELD, Axes.Y, Axes.X],
-                coords={
-                    Axes.CHANNEL: channel_tags,
-                    Axes.TIME: [0],
-                    Axes.REGION: list(map(str, timepoint_tags)),
-                    Axes.FIELD: field_tags,
-                }
-            )
-        )
+    intensity = xr.DataArray(
+        plate,
+        dims=[Axes.CHANNEL, Axes.REGION, Axes.TIME, Axes.FIELD, Axes.Y, Axes.X],
+        coords={
+            Axes.CHANNEL: channel_tags,
+            Axes.TIME: [0],
+            Axes.REGION: list(map(str, timepoint_tags)),
+            Axes.FIELD: field_tags,
+        }
     ).squeeze(Axes.TIME, drop=True)
 
     if fillna:
-        dataset = dataset.ffill(Axes.TIME).bfill(Axes.TIME).ffill(Axes.FIELD).bfill(Axes.FIELD)
+        intensity = intensity.ffill(Axes.TIME).bfill(Axes.TIME).ffill(Axes.FIELD).bfill(Axes.FIELD)
 
-    return dataset
+    return intensity

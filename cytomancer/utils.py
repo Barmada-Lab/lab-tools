@@ -10,7 +10,7 @@ from cytomancer.io.cq1_loader import load_cq1
 from cytomancer.experiment import Axes, ExperimentType
 
 
-def load_experiment(path: pl.Path, experiment_type: ExperimentType, fillna: bool = False) -> xr.Dataset:
+def load_experiment(path: pl.Path, experiment_type: ExperimentType, fillna: bool = False) -> xr.DataArray:
     match experiment_type:
         case ExperimentType.LEGACY:
             return load_legacy(path, fillna)

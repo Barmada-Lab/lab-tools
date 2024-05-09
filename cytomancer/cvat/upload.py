@@ -121,31 +121,31 @@ def prep_experiment(
         to_uint8: bool = True,
         fillna: bool = True):
 
-    experiment = load_experiment(experiment_base, experiment_type, fillna).intensity
+    intensity = load_experiment(experiment_base, experiment_type, fillna)
 
-    attrs = experiment.attrs
+    attrs = intensity.attrs
 
     if channels is not None:
-        experiment = experiment.sel({Axes.CHANNEL: channels})
+        intensity = intensity.sel({Axes.CHANNEL: channels})
 
     if mip:
-        if Axes.Z not in experiment.dims:
+        if Axes.Z not in intensity.dims:
             raise ValueError("MIP requested but no z-dimension found")
-        experiment = experiment.max(dim=Axes.Z)
+        intensity = intensity.max(dim=Axes.Z)
 
     if apply_psuedocolor:
-        experiment = display.apply_psuedocolor(experiment).assign_attrs(attrs)
+        intensity = display.apply_psuedocolor(intensity).assign_attrs(attrs)
 
     if composite:
-        if Axes.CHANNEL not in experiment.dims:
+        if Axes.CHANNEL not in intensity.dims:
             warnings.warn("Composite requested but no channel dimension found; ignoring")
-        experiment = experiment.mean(dim=Axes.CHANNEL)
+        intensity = intensity.mean(dim=Axes.CHANNEL)
 
     if to_uint8:
-        experiment = display.rescale_intensity(
-            experiment, [Axes.Y, Axes.X], in_percentile=(rescale, 100 - rescale), out_range="uint8")
+        intensity = display.rescale_intensity(
+            intensity, [Axes.Y, Axes.X], in_percentile=(rescale, 100 - rescale), out_range="uint8")
 
-    return experiment
+    return intensity
 
 
 @click.command("upload-raw")

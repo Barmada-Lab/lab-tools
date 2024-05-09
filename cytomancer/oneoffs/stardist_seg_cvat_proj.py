@@ -38,7 +38,7 @@ def run(project_name: str, experiment_dir: Path, experiment_type: ExperimentType
 
     label_id = label_map[label_name]
 
-    intensity = load_experiment(experiment_dir, experiment_type).intensity
+    intensity = load_experiment(experiment_dir, experiment_type)
     model = StarDist2D.from_pretrained(model_name)
 
     for task in tasks:

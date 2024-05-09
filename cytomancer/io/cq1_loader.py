@@ -213,7 +213,7 @@ def _load_and_tag_acquisition(dt: datetime, path: pl.Path) -> xr.DataArray:
     return arr
 
 
-def load_cq1(base_path: pl.Path) -> xr.Dataset:
+def load_cq1(base_path: pl.Path) -> xr.DataArray:
     """Load a CQ1 experiment from a directory.
 
     Parameters
@@ -231,7 +231,7 @@ def load_cq1(base_path: pl.Path) -> xr.Dataset:
 
     if (dt := _try_parse_dir(base_path)) is not None:
         arr = _load_and_tag_acquisition(dt, base_path)
-        return xr.Dataset(dict(intensity=arr))
+        return arr
     else:
         dt_paths = [(_try_parse_dir(d), d) for d in base_path.iterdir() if d.is_dir()]
         dt_paths = [(dt, path) for dt, path in dt_paths if dt is not None]
@@ -239,6 +239,6 @@ def load_cq1(base_path: pl.Path) -> xr.Dataset:
         if any(dt_paths):
             arrs = [_load_and_tag_acquisition(dt, path) for dt, path in dt_paths]
             arr = xr.concat(arrs, dim=Axes.TIME)
-            return xr.Dataset(dict(intensity=arr))
+            return arr
         else:
             raise ValueError(f"Could not find any acquisition directories in {base_path}.")

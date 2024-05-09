@@ -196,7 +196,7 @@ def run(
     if (classifier := load_classifier(svm_model_path)) is None:
         raise ValueError(f"Could not load classifier model at path {svm_model_path}")
 
-    intensity = load_experiment(experiment_path, experiment_type).intensity
+    intensity = load_experiment(experiment_path, experiment_type)
 
     if experiment_type is ExperimentType.CQ1:
         # The last row/col of DAPI images captured on the CQ1 is inexplicably zeroed out.

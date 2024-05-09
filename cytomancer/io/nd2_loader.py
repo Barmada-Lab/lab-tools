@@ -6,7 +6,7 @@ import nd2
 from cytomancer.experiment import Axes
 
 
-def load_nd2(path: pl.Path) -> xr.Dataset:
+def load_nd2(path: pl.Path) -> xr.DataArray:
 
     arr = nd2.imread(path, dask=True, xarray=True)
     nd2_label = path.name.replace(".nd2", "")
@@ -39,4 +39,4 @@ def load_nd2(path: pl.Path) -> xr.Dataset:
         rename_dict["Z"] = Axes.Z
     arr = arr.rename(rename_dict)
 
-    return xr.Dataset(dict(intensity=arr))
+    return arr

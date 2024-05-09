@@ -7,7 +7,7 @@ from cytomancer.experiment import Axes
 from . import ioutils
 
 
-def load_lux(base: pl.Path, fillna: bool = True) -> xr.Dataset:
+def load_lux(base: pl.Path, fillna: bool = True) -> xr.DataArray:
     timepoint_tags = sorted([int(path.name.replace("T", "")) for path in base.glob("raw_imgs/*")])
     region_tags = set()
     field_tags = set()
@@ -44,22 +44,18 @@ def load_lux(base: pl.Path, fillna: bool = True) -> xr.Dataset:
     field_coords = [field.replace("mosaic_", "") for field in field_tags]
     channel_coords = [exposure.split("_")[0] for exposure in exposure_tags]
 
-    dataset = xr.Dataset(
-        data_vars=dict(
-            intensity=xr.DataArray(
-                plate,
-                dims=[Axes.CHANNEL, Axes.TIME, Axes.REGION, Axes.FIELD, Axes.Y, Axes.X],
-                coords={
-                    Axes.CHANNEL: channel_coords,
-                    Axes.TIME: timepoint_tags,
-                    Axes.REGION: region_coords,
-                    Axes.FIELD: field_coords,
-                }
-            )
-        )
+    intensity = xr.DataArray(
+        plate,
+        dims=[Axes.CHANNEL, Axes.TIME, Axes.REGION, Axes.FIELD, Axes.Y, Axes.X],
+        coords={
+            Axes.CHANNEL: channel_coords,
+            Axes.TIME: timepoint_tags,
+            Axes.REGION: region_coords,
+            Axes.FIELD: field_coords,
+        }
     )
 
     if fillna:
-        dataset = dataset.ffill(Axes.TIME).bfill(Axes.TIME).ffill(Axes.FIELD).bfill(Axes.FIELD)
+        intensity = intensity.ffill(Axes.TIME).bfill(Axes.TIME).ffill(Axes.FIELD).bfill(Axes.FIELD)
 
-    return dataset
+    return intensity
