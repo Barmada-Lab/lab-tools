@@ -44,9 +44,9 @@ def _transform_arrs(df, labels=None):
         for props in regionprops(objects):
             mask = objects == props.label
             feature_vec = {
-                "dapi_signal": np.median(dapi[mask]) / dapi_median,
-                "gfp_signal": np.median(gfp[mask]) / gfp_median,
-                "rfp_signal": np.median(rfp[mask]) / rfp_median,
+                "dapi_signal": np.mean(dapi[mask]) / dapi_median,
+                "gfp_signal": np.mean(gfp[mask]) / gfp_median,
+                "rfp_signal": np.mean(rfp[mask]) / rfp_median,
                 "size": mask.sum()
             }
 
@@ -96,10 +96,6 @@ def get_segmented_image_df(client: Client, project_name: str, live_label: str, i
         live_labels = np.zeros_like(label_arr, dtype=bool)
         live_labels[label_arr == live_label_id] = True
         annotation_frame_idx = np.argmax(np.bincount(live_labels.sum(axis=(1, 2))))
-
-        # TODO: delete this when done testing
-        if not live_labels.any():
-            continue
 
         records.append({
             "objects": obj_arr[annotation_frame_idx],
