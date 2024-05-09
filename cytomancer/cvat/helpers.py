@@ -10,11 +10,11 @@ from cytomancer.config import CytomancerConfig
 from cytomancer.experiment import Axes
 
 
-def new_client_from_config(settings: CytomancerConfig):
-    client = Client(url=settings.cvat_url, config=Config(verify_ssl=False))
-    client.login((settings.cvat_username, settings.cvat_password))
+def new_client_from_config(config: CytomancerConfig):
+    client = Client(url=config.cvat_url, config=Config(verify_ssl=False))
+    client.login((config.cvat_username, config.cvat_password))
 
-    org_slug = settings.cvat_org
+    org_slug = config.cvat_org
     client.organization_slug = org_slug
     return client
 
