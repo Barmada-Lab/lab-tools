@@ -10,7 +10,6 @@ from skimage.segmentation import mark_boundaries
 from skimage.exposure import rescale_intensity
 from skimage import filters, exposure, morphology, transform  # type: ignore
 from dask.distributed import Worker, get_client
-from stardist.models import StarDist2D, Config2D
 from pystackreg import StackReg
 import xarray as xr
 import pandas as pd
@@ -69,7 +68,7 @@ def predict(dapi, gfp, rfp, nuc_labels, classifier):
     return preds
 
 
-def quantify(intensity: xr.DataArray, seg_model: StarDist2D, classifier: Pipeline, annotation_dir: Path | None = None):
+def quantify(intensity: xr.DataArray, seg_model, classifier: Pipeline, annotation_dir: Path | None = None):
 
     def quantify_field(field: xr.DataArray):
 
@@ -189,6 +188,8 @@ def run(
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
         logging.basicConfig(level=config.log_level, format=fmt)
         logging.info(dask_worker.id)
+        import tensorflow as tf
+        tf.config.threading.set_intra_op_parallelism_threads(2)
 
     client.register_worker_callbacks(init_logging)
 
@@ -210,7 +211,12 @@ def run(
         annotation_dir = results_dir / "annotations"
         annotation_dir.mkdir(exist_ok=True, parents=True)
 
-    model = StarDist2D(Config2D(use_gpu=False)).from_pretrained("2D_versatile_fluo")
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    import tensorflow as tf
+    tf.config.threading.set_intra_op_parallelism_threads(2)
+    from stardist.models import StarDist2D
+    model = StarDist2D.from_pretrained("2D_versatile_fluo")
+
     assert model is not None, "Could not load stardist model"
     counts = quantify(intensity, model, classifier, annotation_dir=annotation_dir).compute()
 

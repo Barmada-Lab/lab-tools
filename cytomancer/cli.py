@@ -40,19 +40,23 @@ def cli(ctx):
 
 @click.command("pult-surv")
 @experiment_dir_argument()
+@click.option("--classifier-name", default="nuclei_survival_svm.joblib", show_default=True, help="Name of pretrained StarDist model to use.")
 @click.option("--save-annotations", is_flag=True, help="Save annotated stacks to results folder")
 @click.option("--run-sync", is_flag=True, help="Run synchronously, skipping the task queue.")
-def pultra_survival(experiment_path: Path, save_annotations: bool, sync: bool):
+def pultra_survival(experiment_dir: Path, classifier_name, save_annotations: bool, run_sync: bool):
     """
     Run pultra survival analysis on an experiment. Note that only CQ1 acquisitions are supported.
     """
+    svm_path = config.models_dir / classifier_name
 
-    if sync:
+    if run_sync:
         from cytomancer.quant.pultra_survival import run
-        run(experiment_path, ExperimentType.CQ1, save_annotations)
+        from dask.distributed import LocalCluster, Client
+        _ = Client(LocalCluster(n_workers=8, threads_per_worker=2))
+        run(experiment_dir, ExperimentType.CQ1, svm_path, save_annotations)
     else:
         from cytomancer.quant.tasks import run_pultra_survival
-        run_pultra_survival.delay(str(experiment_path), ExperimentType.CQ1, save_annotations)
+        run_pultra_survival.delay(str(experiment_dir), ExperimentType.CQ1, str(svm_path), save_annotations)
 
 
 @cli.group("quant", help="Tools for quantifying data")

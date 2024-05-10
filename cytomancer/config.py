@@ -1,8 +1,10 @@
 import logging
 
+import dask.config
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from pathlib import Path
+import dask
 
 
 USER_CONFIG_PATH = Path.home() / ".config" / "cytomancer.env"
@@ -22,15 +24,15 @@ class CytomancerConfig(BaseSettings):
     fo_cache: Path = Path("/data/.focache/")
 
     #  Path to shared model storage -- stores serialized models
-    models_path: Path = Path("/nfs/turbo/shared/models")
+    models_dir: Path = Path("/nfs/turbo/shared/models")
 
     #  Path to shared collection storage -- stores annoted datasets for training
-    collections_path: Path = Path("/nfs/turbo/shared/collections")
+    collections_dir: Path = Path("/nfs/turbo/shared/collections")
 
     #  Url of celery broker; probably a redis instance
     celery_broker_url: str = "redis://localhost:6379"
 
-    @field_validator("models_path", "collections_path")
+    @field_validator("models_dir", "collections_dir")
     @classmethod
     def exists(cls, path: Path):
         if not path.exists():
@@ -51,3 +53,4 @@ class CytomancerConfig(BaseSettings):
 
 config = CytomancerConfig()
 logging.basicConfig(level=config.log_level)
+dask.config.set({"distributed.scheduler.worker-ttl": "5m"})
