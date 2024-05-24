@@ -134,16 +134,18 @@ def quantify(intensity: xr.DataArray, seg_model, classifier: Pipeline, annotatio
             censored = np.array(censored_frames)
 
             intensity_img = np.stack(3 * [intensity_transformed], axis=-1)
-            annotated = [mark_boundaries(frame, live_frame, color=(0, 1, 0)) for frame, live_frame in zip(intensity_img, live)]
-            annotated = [mark_boundaries(frame, dead_frame, color=(1, 0, 0)) for frame, dead_frame in zip(annotated, dead)]
-            annotated = [mark_boundaries(frame, c, color=(0, 0, 1)) for frame, c in zip(annotated, censored)]
-            annotated = [rescale_intensity(frame, out_range="uint8") for frame in annotated]
+            annotated = []
+            for intensity_frame, live_frame, dead_frame, censored_frame in zip(intensity_img, live, dead, censored):
+                marked_frame = mark_boundaries(intensity_frame, live_frame, color=(0, 1, 0))
+                marked_frame = mark_boundaries(marked_frame, dead_frame, color=(1, 0, 0))
+                marked_frame = mark_boundaries(marked_frame, censored_frame, color=(0, 0, 1))
+                marked_frame = rescale_intensity(marked_frame, out_range="uint8")
+                annotated.append(Image.fromarray(marked_frame))
 
-            frame_0 = Image.fromarray(annotated[0])
-            the_rest = [Image.fromarray(frame) for frame in annotated[1:]]
+            frame_0 = annotated[0]
             frame_0.save(
                 output_path, format='GIF', save_all=True,
-                append_images=the_rest, duration=500, loop=0)
+                append_images=annotated[1:], duration=500, loop=0)
 
         return xr.DataArray(
             data=np.array(counts).reshape(-1, 1, 1),
@@ -218,7 +220,7 @@ def run(
     model = StarDist2D.from_pretrained("2D_versatile_fluo")
 
     assert model is not None, "Could not load stardist model"
-    counts = quantify(intensity, model, classifier, annotation_dir=annotation_dir).compute()
+    counts = quantify(intensity, model, classifier, annotation_dir=annotation_dir).load()
 
     rows = []
     for ts in iter_idx_prod(counts, ignore_dims=[Axes.TIME]):
