@@ -1,4 +1,5 @@
 import logging
+import warnings
 
 import dask.config
 from pydantic_settings import BaseSettings
@@ -36,7 +37,7 @@ class CytomancerConfig(BaseSettings):
     @classmethod
     def exists(cls, path: Path):
         if not path.exists():
-            raise ValueError(f"Path {path} does not exist")
+            warnings.warn(f"Path {path} does not exist; this will cause problems")
         return path
 
     def save(self):
