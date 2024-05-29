@@ -19,7 +19,7 @@ class CytomancerConfig(BaseSettings):
     cvat_url: str = ""
     cvat_username: str = ""
     cvat_password: str = ""
-    cvat_org: str = "barma"
+    cvat_org: str = ""
 
     #  Path to FiftyOne dataset storage -- stores png-converted images
     fo_cache: Path = Path("/data/.focache/")
