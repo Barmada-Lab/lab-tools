@@ -29,7 +29,8 @@ def colocalize_rois(nuc_rois, soma_rois):
 def measure_nuc_cyto_ratio_nd2s(  # noqa: C901
         client: Client,
         project_id: int,
-        collections: dict[str, xr.DataArray],
+        collection_name: str,
+        intensity_arr: xr.DataArray,
         nuc_channel: str,
         soma_channel: str,
         measurement_channels: list[str]):
@@ -38,8 +39,8 @@ def measure_nuc_cyto_ratio_nd2s(  # noqa: C901
     for selector, obj_arr, _ in enumerate_rois(client, project_id):
 
         region = selector.pop(Axes.REGION)
-        collection = collections[region]  # type: ignore
-        intensity_arr = collection.sel(selector)
+        if region != collection_name:
+            continue
 
         channels = selector[Axes.CHANNEL]
         nuc_idx = np.where(channels == nuc_channel)
@@ -128,7 +129,6 @@ def measure_nuc_cyto_ratio(  # noqa: C901
     df = pd.DataFrame()
     for selector, obj_arr, _ in enumerate_rois(client, project_id):
 
-        # NEW WAY, BETTER WAY, BUT DOESN'T WORK WITH OLD EXPERIMENTS :(
         intensity_arr = collection.sel(selector)
         channels = selector[Axes.CHANNEL].tolist()
 
@@ -252,8 +252,13 @@ def cli_entry(
 
     # TODO: homogenize collections and put into one array
     if experiment_type is ExperimentType.ND2:
-        collections = {nd2_file.name.replace(".nd2", "").replace("-", "_"): prep_experiment(nd2_file, mip, False, experiment_type, 0.0, None, False, False, False) for nd2_file in experiment_base.glob("**/*.nd2")}
-        df = measure_nuc_cyto_ratio_nd2s(client, project_id, collections, nuc_channel, soma_channel, channel_list)
+        df = pd.DataFrame()
+        for nd2_file in experiment_base.glob("**/*.nd2"):
+            collection_name = nd2_file.name.replace(".nd2", "")
+            intensity_arr = prep_experiment(nd2_file, mip, False, experiment_type, 0.0, None, False, False, False)
+            collection_df = measure_nuc_cyto_ratio_nd2s(client, project_id, collection_name, intensity_arr, nuc_channel, soma_channel, channel_list)
+            df = pd.concat((df, collection_df), ignore_index=True)
+            intensity_arr.close()
         df.to_csv(output_dir / "nuc_cyto_CVAT.csv", index=False)
     else:
         collections = prep_experiment(experiment_base, mip, False, experiment_type, 0.0, None, False, False, False)
