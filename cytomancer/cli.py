@@ -78,7 +78,7 @@ def cvat_group(ctx):
 
 @click.command("auth")
 @click.option("--cvat-username", prompt="CVAT Username")
-@click.password_option("--cvat-password", prompt="CVAT Password")
+@click.password_option("--cvat-password", prompt="CVAT Password", confirmation_prompt=False)
 def cvat_auth(cvat_username, cvat_password):
     """
     Update CVAT credentials. Run this with no arguments to get an interactive prompt that hides your password.
