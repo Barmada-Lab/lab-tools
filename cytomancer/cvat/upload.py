@@ -207,7 +207,7 @@ def cli_entry_experiment(
         samples_per_region: int,
         fillna: bool):
 
-    dask_client = DaskClient(n_workers=1)
+    dask_client = DaskClient()
     logger.info(dask_client.dashboard_link)
 
     channel_list = None if channels == "" else channels.split(",")
@@ -290,3 +290,5 @@ def cli_entry_experiment(
 
             case _:
                 raise ValueError(f"Unknown dims {dims}")
+
+        collection.close()
