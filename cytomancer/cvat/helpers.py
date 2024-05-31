@@ -31,21 +31,20 @@ def _fmt_coord_selector_str(label, coord_arr):
     if np.issubdtype(arr.dtype, np.str_):
         for value in arr:
             assert FIELD_DELIM not in value, f"{label} value {value} is invalid; contains a '|'; rename and try again"
-            assert FIELD_VALUE_DELIM not in value, f"{label} value {value} is invalid; contains a '-'; rename and try again"
             assert VALUE_DELIM not in value, f"{label} value {value} is invalid; contains a ':'; rename and try again"
 
     return f"{label}{FIELD_VALUE_DELIM}" + VALUE_DELIM.join(map(str, arr))
 
 
 def _parse_field_selector(selector: str):
-    field_name, field_values = selector.split(FIELD_VALUE_DELIM)
+    tokens = selector.split(FIELD_VALUE_DELIM)
+    field_name = tokens[0]
+    field_values = FIELD_VALUE_DELIM.join(tokens[1:])  # this allows field values to contain the FIELD_VALUE_DELIM, as is sometimes the case with filenames
+
     try:
         axis = Axes(field_name)
     except ValueError:
-        try:
-            axis = Axes(field_name.split(".")[-1].lower())
-        except ValueError:
-            raise ValueError(f"Invalid field name {field_name} in selector {selector}")
+        raise ValueError(f"Invalid field name {field_name} in selector string {selector}")
 
     target_dtype = np.str_
 
