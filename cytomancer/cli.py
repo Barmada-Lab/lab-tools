@@ -1,9 +1,11 @@
 from pathlib import Path
+import logging
 
 from trogon import tui
+import joblib
 import click
 
-from cytomancer.utils import test_cvat_connection
+from cytomancer.utils import test_cvat_connection, load_experiment
 from cytomancer.experiment import ExperimentType
 from cytomancer.cvat.survival import cli_entry as cvat_survival
 from cytomancer.cvat.upload import cli_entry_experiment
@@ -11,6 +13,8 @@ from cytomancer.cvat.nuc_cyto import cli_entry as cvat_nuc_cyto
 
 from cytomancer.updater import check_for_updates
 from cytomancer.config import config
+
+logger = logging.getLogger(__name__)
 
 
 def experiment_dir_argument(**kwargs):
@@ -59,12 +63,32 @@ def pultra_survival(experiment_dir: Path, classifier_name, save_annotations: boo
         run_pultra_survival.delay(str(experiment_dir), ExperimentType.CQ1, str(svm_path), save_annotations)
 
 
+@click.command("train-pultra-classifier")
+@click.argument("cvat_project_name", type=str)
+@experiment_dir_argument()
+@experiment_type_argument()
+@click.argument("output_path", type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True))
+@click.argument("live_label", type=str)
+@click.option("--min-dapi-snr", type=float, default=2, help="Minimum DAPI signal-to-noise ratio to include in training data.")
+def train_pultra_classifier(cvat_project_name, experiment_dir: Path, experiment_type: ExperimentType, output_path: Path, live_label: str, min_dapi_snr: float):
+    """
+    Train a classifier for pultra survival analysis.
+    """
+    intensity_arr = load_experiment(experiment_dir, experiment_type)
+    from cytomancer.quant.pultra_classifier import train
+    classifier = train(cvat_project_name, live_label, intensity_arr, min_dapi_snr)
+    if classifier is not None:
+        joblib.dump(classifier, output_path)
+        logger.info(f"Saved classifier to {output_path}")
+
+
 @cli.group("quant", help="Tools for quantifying data")
 @click.pass_context
 def quant_group(ctx):
     ctx.ensure_object(dict)
 
 
+quant_group.add_command(train_pultra_classifier)
 quant_group.add_command(pultra_survival)
 
 
