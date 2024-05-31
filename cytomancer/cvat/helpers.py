@@ -2,7 +2,6 @@ from itertools import groupby
 from skimage.measure import regionprops
 
 from cvat_sdk import Client, Config
-from toolz import curry
 import xarray as xr
 import numpy as np
 
@@ -38,8 +37,7 @@ def _fmt_coord_selector_str(label, coord_arr):
     return f"{label}{FIELD_VALUE_DELIM}" + VALUE_DELIM.join(map(str, arr))
 
 
-@curry
-def _parse_field_selector(arr: xr.DataArray | None, selector: str):
+def _parse_field_selector(selector: str):
     field_name, field_values = selector.split(FIELD_VALUE_DELIM)
     try:
         axis = Axes(field_name)
@@ -49,10 +47,7 @@ def _parse_field_selector(arr: xr.DataArray | None, selector: str):
         except ValueError:
             raise ValueError(f"Invalid field name {field_name} in selector {selector}")
 
-    if arr is None:
-        target_dtype = np.str_
-    else:
-        target_dtype = arr[axis].dtype
+    target_dtype = np.str_
 
     match axis:
         case Axes.TIME:
@@ -82,7 +77,7 @@ def coord_selector(arr: xr.DataArray) -> str:
 
 def parse_selector(selector_str: str) -> dict[Axes, np.ndarray]:
     """Parses a selector string into a dictionary of axes to values"""
-    return dict(map(_parse_field_selector(None), selector_str.split(FIELD_DELIM)))  # type: ignore
+    return dict(map(_parse_field_selector, selector_str.split(FIELD_DELIM)))  # type: ignore
 
 
 def rle_to_mask(rle: list[int], width: int, height: int) -> np.ndarray:
