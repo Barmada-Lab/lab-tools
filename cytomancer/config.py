@@ -2,7 +2,7 @@ import logging
 import warnings
 
 import dask.config
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 from pathlib import Path
 import dask
@@ -45,11 +45,11 @@ class CytomancerConfig(BaseSettings):
             for k, v in self.model_dump().items():
                 f.write(f"{k}={v}\n")
 
-    class Config:
-        env_file = USER_CONFIG_PATH
-        env_file_encoding = "utf-8"
-        env_prefix = 'cytomancer_'
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=USER_CONFIG_PATH,
+        env_file_encoding="utf-8",
+        env_prefix='cytomancer_',
+        extra="ignore")
 
 
 config = CytomancerConfig()
