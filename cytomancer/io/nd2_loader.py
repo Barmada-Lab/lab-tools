@@ -8,7 +8,7 @@ from cytomancer.experiment import Axes
 
 def load_nd2(path: pl.Path) -> xr.DataArray:
 
-    arr = nd2.imread(path, dask=True, xarray=True)
+    arr = nd2.imread(path, xarray=True)
     nd2_label = path.name.replace(".nd2", "")
     arr = arr.expand_dims(Axes.REGION).assign_coords({Axes.REGION: [nd2_label]})
 

@@ -237,7 +237,7 @@ def cli_entry_experiment(
     project_id = project.id  # type: ignore
 
     for collection in collections:
-        logger.info(collection.coords[Axes.REGION])
+        logger.info(f"uploading {collection.coords[Axes.REGION]}")
         if tps != "":
             tps_list = [int(tp) for tp in tps.split(",")]
             if len(tps_list) > 1:
@@ -291,4 +291,4 @@ def cli_entry_experiment(
             case _:
                 raise ValueError(f"Unknown dims {dims}")
 
-        collection.close()
+    logger.info("Done!")
