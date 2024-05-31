@@ -208,13 +208,14 @@ def cli_entry_experiment(
         fillna: bool):
 
     dask_client = DaskClient()
-    logger.info(dask_client.dashboard_link)
+    logger.info(f"Dashboard link: {dask_client.dashboard_link}")
 
     channel_list = None if channels == "" else channels.split(",")
     if channel_list is not None and len(channel_list) == 1:
         channel_list = channel_list[0]
 
     if experiment_type == ExperimentType.ND2:
+        logger.info("Loading ND2 files... this may take a while.")
         collections = [prep_experiment(nd2_file, mip, composite, experiment_type, rescale, channel_list, apply_psuedocolor=True, fillna=fillna) for nd2_file in experiment_base.glob("**/*.nd2")]  # noqa: E501
     else:
         collections = [prep_experiment(experiment_base, mip, composite, experiment_type, rescale, channel_list, apply_psuedocolor=True, fillna=fillna)]  # noqa: E501
