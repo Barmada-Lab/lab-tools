@@ -23,7 +23,6 @@ from .pultra_classifier import load_classifier
 
 logger = logging.getLogger(__name__)
 
-
 LIVE = 1
 DEAD = 2
 
@@ -174,9 +173,6 @@ def run(
         experiment_type: ExperimentType,
         svm_model_path: Path,
         save_annotations: bool):
-
-    fmt = "main|%(asctime)s|%(name)s|%(levelname)s: %(message)s"
-    logging.basicConfig(level=config.log_level, format=fmt)
 
     client = get_client()
     logger.info(f"Connected to dask scheduler {client.scheduler}")

@@ -7,7 +7,6 @@ from pydantic import field_validator
 from pathlib import Path
 import dask
 
-
 USER_CONFIG_PATH = Path.home() / ".config" / "cytomancer.env"
 
 
@@ -54,4 +53,9 @@ class CytomancerConfig(BaseSettings):
 
 config = CytomancerConfig()
 logging.basicConfig(level=config.log_level)
+logging.getLogger("dask").setLevel(level=logging.WARN)
+logging.getLogger("distributed.nanny").setLevel(level=logging.WARN)
+logging.getLogger("distributed.scheduler").setLevel(level=logging.WARN)
+logging.getLogger("distributed.core").setLevel(level=logging.WARN)
+logging.getLogger("distributed.http").setLevel(level=logging.WARN)
 dask.config.set({"distributed.scheduler.worker-ttl": "5m"})

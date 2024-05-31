@@ -4,7 +4,6 @@ import xml.etree.ElementTree as xml
 import warnings
 import logging
 
-from cytomancer.experiment import Axes
 from datetime import datetime
 from skimage import exposure  # type: ignore
 import tifffile
@@ -16,6 +15,7 @@ import xarray as xr
 import numpy as np
 import re
 
+from cytomancer.experiment import Axes
 
 logger = logging.getLogger(__name__)
 
