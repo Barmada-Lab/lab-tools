@@ -6,7 +6,7 @@ from skimage.measure import regionprops
 from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline, Pipeline
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 import xarray as xr
 import pandas as pd
 import numpy as np
@@ -108,7 +108,11 @@ def get_segmented_image_df(client: Client, project_name: str, live_label: str, i
     return pd.DataFrame.from_records(records)
 
 
-def train(project_name: str, live_label: str, intensity: xr.DataArray, min_dapi_snr: float | None = None):
+def train(
+        project_name: str,
+        live_label: str,
+        intensity: xr.DataArray,
+        min_dapi_snr: float | None = None) -> Pipeline | None:
 
     client = new_client_from_config(config)
 
@@ -128,11 +132,15 @@ def train(project_name: str, live_label: str, intensity: xr.DataArray, min_dapi_
         X = X.drop(low_snr)
         y = np.delete(y, low_snr)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     pipe = build_pipeline()
+
+    scores = cross_val_score(pipe, X, y, scoring="f1_micro")
+    logger.info(f"Fit pipeline. Cross-validation scores: {scores}")
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     pipe.fit(X_train, y_train)
-    score = pipe.score(X_test, y_test)
-    logger.info(f"Fit pipeline. Score: {score}")
+    score = pipe.score(X_test, y_test, scoring="f1_micro")  # type: ignore
+    logger.info(f"Pipeline score: {score}")
 
     return pipe
 
