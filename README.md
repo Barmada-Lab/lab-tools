@@ -1,6 +1,6 @@
 ## What's this?
 
-cytomancer is a collection of tools designed around the needs of Sami Barmada's Lab at the University of Michigan. The contents of this collection are oriented towards bioimage analysis.
+cytomancer is a collection of tools designed around the needs of Sami Barmada's Lab at the University of Michigan. The contents of this collection are mostly oriented towards bioimage analysis.
 
 ## Requirements
 
