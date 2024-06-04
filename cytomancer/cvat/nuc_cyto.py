@@ -2,6 +2,7 @@ import pathlib as pl
 
 from cvat_sdk import Client, Config
 from skimage.measure import regionprops
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -33,7 +34,10 @@ def measure_nuc_cyto_ratio_nd2s(  # noqa: C901
         intensity_arr: xr.DataArray,
         nuc_channel: str,
         soma_channel: str,
-        measurement_channels: list[str]):
+        measurement_channels: list[str] | None = None):
+
+    if measurement_channels is None:
+        measurement_channels = intensity_arr[Axes.CHANNEL].values.tolist()
 
     df = pd.DataFrame()
     for selector, obj_arr, _ in enumerate_rois(client, project_id):
@@ -41,6 +45,8 @@ def measure_nuc_cyto_ratio_nd2s(  # noqa: C901
         region = selector.pop(Axes.REGION)
         if region != collection_name:
             continue
+
+        intensity_arr = intensity_arr.sel(selector)
 
         channels = selector[Axes.CHANNEL]
         nuc_idx = np.where(channels == nuc_channel)
@@ -77,7 +83,9 @@ def measure_nuc_cyto_ratio_nd2s(  # noqa: C901
             })
         nuc_df = pd.DataFrame.from_records(nuclear_measurements)
 
-        for channel in measurement_channels:
+        for channel in measurement_channels:  # type: ignore
+
+            print(f"Measuring {channel}")
             # sometimes these collections are inhomogenous and don't contain all the channels we're interested in
             if channel not in intensity_arr[Axes.CHANNEL].values:
                 continue
@@ -124,7 +132,10 @@ def measure_nuc_cyto_ratio(  # noqa: C901
         collection: xr.DataArray,
         nuc_channel: str,
         soma_channel: str,
-        measurement_channels: list[str]):
+        measurement_channels: list[str] | None = None):
+
+    if measurement_channels is None:
+        measurement_channels = collection[Axes.CHANNEL].values.tolist()
 
     df = pd.DataFrame()
     for selector, obj_arr, _ in enumerate_rois(client, project_id):
@@ -166,7 +177,7 @@ def measure_nuc_cyto_ratio(  # noqa: C901
             })
         nuc_df = pd.DataFrame.from_records(nuclear_measurements)
 
-        for channel in measurement_channels:
+        for channel in measurement_channels:  # type: ignore
             # sometimes these collections are inhomogenous and don't contain all the channels we're interested in
             if channel not in intensity_arr[Axes.CHANNEL].values:
                 continue
@@ -215,7 +226,7 @@ def measure_nuc_cyto_ratio(  # noqa: C901
 @click.argument("experiment_base", type=click.Path(exists=True, file_okay=False, path_type=pl.Path))
 @click.argument("nuc_channel", type=str)
 @click.argument("soma_channel", type=str)
-@click.option("--channels", type=str, default="", help="comma-separated list of channels to measure from")
+@click.option("--channels", type=str, default="", help="comma-separated list of channels to measure from; defaults to all")
 @click.option("--mip", is_flag=True, default=False, help="apply MIP to each z-stack")
 @click.option("--experiment-type", type=click.Choice(ExperimentType.__members__),  # type: ignore
               callback=lambda c, p, v: getattr(ExperimentType, v) if v else None, help="experiment type")
@@ -244,7 +255,10 @@ def cli_entry(
     except StopIteration:
         raise ValueError(f"No project matching {project_name} in organization {org_slug}")
 
-    channel_list = channels.split(",")
+    if channels == "":
+        channel_list = None
+    else:
+        channel_list = channels.split(",")
 
     project_id = project.id
     output_dir = experiment_base / "results"
@@ -253,9 +267,10 @@ def cli_entry(
     # TODO: homogenize collections and put into one array
     if experiment_type is ExperimentType.ND2:
         df = pd.DataFrame()
-        for nd2_file in experiment_base.glob("**/*.nd2"):
+        for nd2_file in tqdm(experiment_base.glob("**/*.nd2")):
             collection_name = nd2_file.name.replace(".nd2", "")
             intensity_arr = prep_experiment(nd2_file, mip, False, experiment_type, 0.0, None, False, False, False)
+            print(intensity_arr)
             collection_df = measure_nuc_cyto_ratio_nd2s(client, project_id, collection_name, intensity_arr, nuc_channel, soma_channel, channel_list)
             df = pd.concat((df, collection_df), ignore_index=True)
             intensity_arr.close()
