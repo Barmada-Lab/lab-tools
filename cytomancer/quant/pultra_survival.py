@@ -76,23 +76,30 @@ def quantify(intensity: xr.DataArray, seg_model, classifier: Pipeline, annotatio
         rfp = field.sel({Axes.CHANNEL: "RFP"}).squeeze(drop=True).values
 
         footprint = morphology.disk(5)
-        dapi_med = np.array([filters.median(frame, footprint) for frame in dapi])
-        dapi_eqd = np.array([exposure.equalize_adapthist(frame, kernel_size=100, clip_limit=0.01) for frame in dapi_med])
+        dapi_eqd = np.array([
+            exposure.equalize_adapthist(
+                filters.rank.median(
+                    rescale_intensity(
+                        frame,
+                        out_range="uint8"),
+                    footprint),
+                kernel_size=100,
+                clip_limit=0.01) for frame in dapi])
         nuc_labels = np.array([seg_model.predict_instances(frame)[0] for frame in dapi_eqd]).astype(np.uint16)  # type: ignore
 
         preds = np.array([predict(dapi_frame, gfp_frame, rfp_frame, nuc_label_frame, classifier) for dapi_frame, gfp_frame, rfp_frame, nuc_label_frame in zip(dapi, gfp, rfp, nuc_labels)]).astype(np.uint8)
-        gfp_eqd = np.array([exposure.equalize_adapthist(frame, kernel_size=100, clip_limit=0.01) for frame in gfp])
-        nuc_cyto_mean = (dapi_eqd + gfp_eqd) / 2
+        gfp_eqd = np.array([exposure.equalize_adapthist(frame, kernel_size=100, clip_limit=0.03) for frame in gfp])
+        cellbody = (gfp_eqd + dapi_eqd) / 2
 
         sr = StackReg(StackReg.RIGID_BODY)
         with warnings.catch_warnings(record=True) as w:
-            tmats = sr.register_stack(nuc_cyto_mean)
+            tmats = sr.register_stack(cellbody)
             if len(w) > 0:
                 # if stackreg complains, the registration is probably bad.
                 # default to identity transforms
-                tmats = np.array([np.eye(3) for _ in range(nuc_cyto_mean.shape[0])])
+                tmats = np.array([np.eye(3) for _ in range(cellbody.shape[0])])
 
-        intensity_transformed = sr.transform_stack(nuc_cyto_mean, tmats=tmats)
+        intensity_transformed = sr.transform_stack(cellbody, tmats=tmats)
         labels_transformed = np.array([transform.warp(frame, tmat, order=0, mode="edge") for frame, tmat in zip(nuc_labels, tmats)])
         preds_transformed = np.array([transform.warp(frame, tmat, order=0, mode="edge") for frame, tmat in zip(preds, tmats)])
         censor_borders = np.array([transform.warp(frame, tmat, order=0, mode="constant", cval=1) for frame, tmat in zip(np.zeros_like(nuc_labels), tmats)])
@@ -187,7 +194,7 @@ def run(
         logging.basicConfig(level=config.log_level, format=fmt)
         logging.info(dask_worker.id)
         import tensorflow as tf
-        tf.config.threading.set_intra_op_parallelism_threads(2)
+        tf.config.threading.set_intra_op_parallelism_threads(3)
 
     client.register_worker_callbacks(init_logging)
 
