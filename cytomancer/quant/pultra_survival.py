@@ -76,18 +76,13 @@ def quantify(intensity: xr.DataArray, seg_model, classifier: Pipeline, annotatio
         rfp = field.sel({Axes.CHANNEL: "RFP"}).squeeze(drop=True).values
 
         footprint = morphology.disk(5)
-        dapi_8bit = np.array([rescale_intensity(frame, out_range="uint8") for frame in dapi])
-        dapi_med = np.array([filters.rank.median(frame, footprint) for frame in dapi_8bit])
-        dapi_med_rescaled = np.array([rescale_intensity(frame, out_range=np.float16) for frame in dapi_med])
-        dapi_eqd = np.array([exposure.equalize_adapthist(frame, kernel_size=100, clip_limit=0.01) for frame in dapi_med_rescaled])
+        dapi_med = np.array([filters.median(frame, footprint) for frame in dapi])
+        dapi_eqd = np.array([exposure.equalize_adapthist(frame, kernel_size=100, clip_limit=0.01) for frame in dapi_med])
         nuc_labels = np.array([seg_model.predict_instances(frame)[0] for frame in dapi_eqd]).astype(np.uint16)  # type: ignore
 
         preds = np.array([predict(dapi_frame, gfp_frame, rfp_frame, nuc_label_frame, classifier) for dapi_frame, gfp_frame, rfp_frame, nuc_label_frame in zip(dapi, gfp, rfp, nuc_labels)]).astype(np.uint8)
-        gfp_rescaled = np.array([rescale_intensity(frame, out_range=np.float16) for frame in gfp])
-        gfp_eqd = np.array([exposure.equalize_adapthist(frame, kernel_size=100, clip_limit=0.01) for frame in gfp_rescaled])
+        gfp_eqd = np.array([exposure.equalize_adapthist(frame, kernel_size=100, clip_limit=0.01) for frame in gfp])
         nuc_cyto_mean = (dapi_eqd + gfp_eqd) / 2
-
-        del dapi_8bit, dapi_med, dapi_med_rescaled, dapi_eqd, gfp_rescaled, gfp_eqd  # aggressively free memory
 
         sr = StackReg(StackReg.RIGID_BODY)
         with warnings.catch_warnings(record=True) as w:
@@ -183,7 +178,6 @@ def run(
     logger.info(f"Connected to dask scheduler {client.scheduler}")
     logger.info(f"Dask dashboard available at {client.dashboard_link}")
     logger.debug(f"Cluster: {client.cluster}")
-    logger.info(f"Starting analysis of {experiment_path}")
 
     def init_logging(dask_worker: Worker):
         fmt = f"{dask_worker.id}|%(asctime)s|%(name)s|%(levelname)s: %(message)s"
@@ -214,8 +208,6 @@ def run(
     if save_annotations:
         annotation_dir = results_dir / "annotations"
         annotation_dir.mkdir(exist_ok=True, parents=True)
-    else:
-        annotation_dir = None
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     import tensorflow as tf
