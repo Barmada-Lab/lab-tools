@@ -51,14 +51,8 @@ def pultra_survival(experiment_dir: Path, classifier_name, save_annotations: boo
     """
     svm_path = config.models_dir / classifier_name
 
-    if run_sync:
-        from cytomancer.quant.pultra_survival import run
-        from dask.distributed import LocalCluster, Client
-        _ = Client(LocalCluster(n_workers=8, threads_per_worker=2))
-        run(experiment_dir, ExperimentType.CQ1, svm_path, save_annotations)
-    else:
-        from cytomancer.quant.tasks import run_pultra_survival
-        run_pultra_survival.delay(str(experiment_dir), ExperimentType.CQ1, str(svm_path), save_annotations)
+    from cytomancer.quant.tasks import run_pultra_survival
+    run_pultra_survival.delay(str(experiment_dir), ExperimentType.CQ1, str(svm_path), save_annotations)
 
 
 @click.command("train-pultra-classifier")
