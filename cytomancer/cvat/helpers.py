@@ -18,6 +18,29 @@ def new_client_from_config(config: CytomancerConfig):
     return client
 
 
+def test_cvat_connection(cvat_url, cvat_username, cvat_password):
+    """
+    Test the connection to a CVAT server.
+
+    Args:
+        cvat_url (str): The URL of the CVAT server.
+        cvat_username (str): The username to use for authentication.
+        cvat_password (str): The password to use for authentication.
+
+    Returns:
+        bool: True if the connection was successful, False otherwise.
+    """
+    from cvat_sdk import Client
+    from cvat_sdk.exceptions import ApiException
+    client = Client(url=cvat_url)
+    try:
+        client.login((cvat_username, cvat_password))
+        return True
+    except ApiException as e:
+        print(f"Error: {e.body}")
+        return False
+
+
 # ex. field-1|region-B02|channel-GFP:RFP:Cy5|time-1:2:3:4:5:6:7:8:9:10
 FIELD_DELIM = "|"
 FIELD_VALUE_DELIM = "-"
