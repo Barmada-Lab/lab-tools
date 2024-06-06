@@ -185,6 +185,7 @@ def run(
     logger.info(f"Connected to dask scheduler {client.scheduler}")
     logger.info(f"Dask dashboard available at {client.dashboard_link}")
     logger.debug(f"Cluster: {client.cluster}")
+    logger.info(f"Starting analysis of {experiment_path}")
 
     def init_logging(dask_worker: Worker):
         fmt = f"{dask_worker.id}|%(asctime)s|%(name)s|%(levelname)s: %(message)s"
