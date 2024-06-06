@@ -33,17 +33,6 @@ PLATE_WELL_LUT = {
 }
 
 
-def read_series(img):
-    try:
-        arr = img.asarray()
-        return exposure.rescale_intensity(arr, out_range=np.float32)
-    except (ValueError, NameError, FileNotFoundError) as e:
-        warnings.warn(f"Error reading {img.name}: {e}\nThis field will be filled based on surrounding fields and timepoints.")
-        arr = np.zeros(img.shape, dtype=np.float32)
-        arr[:] = np.nan
-        return arr
-
-
 def _try_parse_dir(path: pl.Path) -> datetime | None:
     if (match := re.match(CQ1_ACQUISITION_DIR_REGEX, path.name)) is not None:
         return datetime(
