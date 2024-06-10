@@ -134,12 +134,12 @@ def train(
 
     pipe = build_pipeline()
 
-    scores = cross_val_score(pipe, X, y, scoring="f1_micro")
+    scores = cross_val_score(pipe, X, y, scoring="accuracy")
     logger.info(f"Fit pipeline. Cross-validation scores: {scores}")
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     pipe.fit(X_train, y_train)
-    score = pipe.score(X_test, y_test, scoring="f1_micro")  # type: ignore
+    score = pipe.score(X_test, y_test, scoring="accuracy")  # type: ignore
     logger.info(f"Pipeline score: {score}")
 
     return pipe
