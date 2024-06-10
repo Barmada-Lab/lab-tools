@@ -21,7 +21,7 @@ class CytomancerConfig(BaseSettings):
     cvat_org: str = ""
 
     #  Path to FiftyOne dataset storage -- stores png-converted images
-    fo_cache: Path = Path("/data/.focache/")
+    fo_cache: Path = Path("/data/fiftyone/")
 
     #  Path to shared model storage -- stores serialized models
     models_dir: Path = Path("/nfs/turbo/shared/models")
@@ -53,9 +53,12 @@ class CytomancerConfig(BaseSettings):
 
 config = CytomancerConfig()
 logging.basicConfig(level=config.log_level)
+
 logging.getLogger("dask").setLevel(level=logging.WARN)
 logging.getLogger("distributed.nanny").setLevel(level=logging.WARN)
 logging.getLogger("distributed.scheduler").setLevel(level=logging.WARN)
 logging.getLogger("distributed.core").setLevel(level=logging.WARN)
 logging.getLogger("distributed.http").setLevel(level=logging.WARN)
+logging.getLogger("distributed.batched").setLevel(level=logging.WARN)
+
 dask.config.set({"distributed.scheduler.worker-ttl": "5m"})
