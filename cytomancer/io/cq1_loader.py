@@ -1,3 +1,4 @@
+from typing import Tuple
 import pathlib as pl
 from itertools import product
 import xml.etree.ElementTree as xml
@@ -5,7 +6,6 @@ import warnings
 import logging
 
 from datetime import datetime
-from skimage import exposure  # type: ignore
 import tifffile
 import dask.array as da
 import dask
@@ -46,7 +46,7 @@ def _try_parse_dir(path: pl.Path) -> datetime | None:
     return None
 
 
-def load_acquisition(path: pl.Path, ome_xml_filename: str | None = None) -> xr.DataArray:  # noqa: C901, get bent flake8
+def get_tp_df(path: pl.Path, ome_xml_filename: str | None = None):  # noqa: C901, get bent flake8
     """
     Load an individual CQ1 acquisition directory. If no argument is provided for
     ome_xml_filename, the function will automatically load an ome.xml file from
@@ -59,7 +59,7 @@ def load_acquisition(path: pl.Path, ome_xml_filename: str | None = None) -> xr.D
 
     if ome_xml_filename is not None:
         if not (xml_path := path / ome_xml_filename).exists():
-            raise ValueError(f"Could not find {ome_xml_filename} in {path}.")
+            raise ValueError(f"Could not find {ome_xml_filename} in {path}")
         ome_xml = ome_types.from_xml(xml_path)
     elif (xml_path := path / "MeasurementResult.ome.xml").exists():
         ome_xml_filename = "MeasurementResult.ome.xml"
@@ -150,6 +150,76 @@ def load_acquisition(path: pl.Path, ome_xml_filename: str | None = None) -> xr.D
     df[Axes.TIME] = df[Axes.TIME].map(lambda t: start_time + acq_delta * t).astype("datetime64[ns]")
     mi = pd.MultiIndex.from_frame(df.drop(["path"], axis=1))
 
+    return pd.DataFrame(
+        index=mi,
+        data=df[["path"]].values,
+        columns=["path"]
+    ).sort_index(), shape, attrs
+
+
+def get_experiment_df(base_path: pl.Path, ordinal_time: bool = True) -> Tuple[pd.DataFrame, tuple, dict]:
+    """
+    Indexes a CQ1 experiment directory by timepoint, channel, region, field, and z-slice.
+
+    Parameters
+    ----------
+    base_path : pl.Path
+        Path to the directory containing the experiment.
+
+    ordinal_time : bool
+        If True, reindex the timepoints to be ordinal integers. This is useful for displaying
+        longitudinal experiments in a more human-readable format. only applies to multi-timepoint
+        experiments.
+
+    Returns
+    -------
+    pd.DataFrame
+    """
+
+    def reindex_time(df, value):
+        multiindex = df.index
+        time_index = multiindex.names.index(Axes.TIME)
+        new_index = multiindex.set_levels(
+            multiindex.levels[time_index].map(lambda _: value),
+            level=time_index
+        )
+        return df.set_index(new_index)
+
+    if _try_parse_dir(base_path) is not None:
+        return get_tp_df(base_path)
+
+    else:
+        dt_paths = [(_try_parse_dir(d), d) for d in base_path.iterdir() if d.is_dir()]
+        dt_paths = [(dt, path) for dt, path in dt_paths if dt is not None]
+        dt_paths = sorted(dt_paths, key=lambda d: d[0])
+
+        shape, attrs = None, None
+        df = pd.DataFrame()
+        if any(dt_paths) and ordinal_time:
+            for i, (_, path) in enumerate(dt_paths):
+                tp_df, tp_shape, tp_attrs = get_tp_df(path)  
+                assert shape is None or shape == tp_shape, f"Shape mismatch: {shape} vs {tp_shape}"
+                assert attrs is None or attrs == tp_attrs, f"Attribute mismatch: {attrs} vs {tp_attrs}"
+                shape, attrs = tp_shape, tp_attrs
+                reindexed = reindex_time(tp_df, i)
+                df = pd.concat([df, reindexed])
+            return df, shape, attrs  # type: ignore
+
+        elif any(dt_paths) and not ordinal_time:
+            for _, path in dt_paths:
+                tp_df, tp_shape, tp_attrs = get_tp_df(path)
+                assert shape is None or shape == tp_shape, f"Shape mismatch: {shape} vs {tp_shape}"
+                assert attrs is None or attrs == tp_attrs, f"Attribute mismatch: {attrs} vs {tp_attrs}"
+                shape, attrs = tp_shape, tp_attrs
+                df = pd.concat([df, tp_df])
+            return df, shape, attrs  # type: ignore
+
+        else:
+            raise ValueError(f"Could not find any acquisition directories in {base_path}.")
+
+
+def load_df(df, shape, attrs) -> xr.DataArray:  # noqa: C901, get bent flake8
+
     def read_img(path):
         logger.debug(f"Reading {path}")
         return tifffile.imread(path)
@@ -169,11 +239,6 @@ def load_acquisition(path: pl.Path, ome_xml_filename: str | None = None) -> xr.D
                 level = recurrence.index.values
             return da.stack([read_indexed_ims(recurrence.loc[idx]) for idx in level])
 
-    df = pd.DataFrame(
-        index=mi,
-        data=df[["path"]].values,
-        columns=["path"]
-    ).sort_index()
     arr = read_indexed_ims(df)
 
     labels = [Axes.TIME, Axes.CHANNEL, Axes.REGION, Axes.FIELD, Axes.Z]
@@ -196,12 +261,6 @@ def load_acquisition(path: pl.Path, ome_xml_filename: str | None = None) -> xr.D
     return arr
 
 
-def _load_and_tag_acquisition(dt: datetime, path: pl.Path) -> xr.DataArray:
-    arr = load_acquisition(path)
-    # do stuff with dt
-    return arr
-
-
 def load_cq1(base_path: pl.Path) -> xr.DataArray:
     """Load a CQ1 experiment from a directory.
 
@@ -218,16 +277,5 @@ def load_cq1(base_path: pl.Path) -> xr.DataArray:
         The experiment data.
     """
 
-    if (dt := _try_parse_dir(base_path)) is not None:
-        arr = _load_and_tag_acquisition(dt, base_path)
-        return arr
-    else:
-        dt_paths = [(_try_parse_dir(d), d) for d in base_path.iterdir() if d.is_dir()]
-        dt_paths = [(dt, path) for dt, path in dt_paths if dt is not None]
-        dt_paths = sorted(dt_paths, key=lambda d: d[0])
-        if any(dt_paths):
-            arrs = [_load_and_tag_acquisition(dt, path) for dt, path in dt_paths]
-            arr = xr.concat(arrs, dim=Axes.TIME)
-            return arr
-        else:
-            raise ValueError(f"Could not find any acquisition directories in {base_path}.")
+    df, shape, attrs = get_experiment_df(base_path)
+    return load_df(df, shape, attrs)
