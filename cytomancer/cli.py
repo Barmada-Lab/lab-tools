@@ -7,6 +7,7 @@ from cytomancer.quant.click import register as register_quant
 from cytomancer.cvat.click import register as register_cvat
 from cytomancer.oneoffs.click import register as register_oneoffs
 from cytomancer.config_click import register as register_config
+from cytomancer.fiftyone.click import register as register_fiftyone
 
 logger = logging.getLogger(__name__)
 
@@ -22,3 +23,4 @@ register_quant(cli)
 register_cvat(cli)
 register_oneoffs(cli)
 register_config(cli)
+register_fiftyone(cli)

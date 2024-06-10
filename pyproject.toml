@@ -47,6 +47,7 @@ celery = "^5.4.0"
 redis = "^5.0.4"
 pygithub = "^2.3.0"
 tensorflow = "2.15.0"
+fiftyone = "^0.24.0"
 
 [tool.poetry.group.dev]
 optional = true
