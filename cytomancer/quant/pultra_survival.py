@@ -1,16 +1,14 @@
 from pathlib import Path
 import logging
-import warnings
 import os
 
-from PIL import Image
 from sklearn.pipeline import Pipeline
 from skimage.measure import regionprops
-from skimage.segmentation import mark_boundaries
 from skimage.exposure import rescale_intensity
-from skimage import filters, exposure, morphology, transform  # type: ignore
+from skimage import filters, exposure, morphology  # type: ignore
 from dask.distributed import Worker, get_client
-from pystackreg import StackReg
+import fiftyone as fo
+from fiftyone import ViewField as F
 import xarray as xr
 import pandas as pd
 import numpy as np
@@ -67,7 +65,7 @@ def predict(dapi, gfp, rfp, nuc_labels, classifier):
     return preds
 
 
-def quantify(intensity: xr.DataArray, seg_model, classifier: Pipeline, annotation_dir: Path | None = None):
+def quantify(intensity: xr.DataArray, seg_model, classifier: Pipeline, dataset: fo.Dataset | None = None):
 
     def quantify_field(field: xr.DataArray):
 
@@ -88,70 +86,44 @@ def quantify(intensity: xr.DataArray, seg_model, classifier: Pipeline, annotatio
         nuc_labels = np.array([seg_model.predict_instances(frame)[0] for frame in dapi_eqd]).astype(np.uint16)  # type: ignore
 
         preds = np.array([predict(dapi_frame, gfp_frame, rfp_frame, nuc_label_frame, classifier) for dapi_frame, gfp_frame, rfp_frame, nuc_label_frame in zip(dapi, gfp, rfp, nuc_labels)]).astype(np.uint8)
-        gfp_eqd = np.array([exposure.equalize_adapthist(frame, kernel_size=100, clip_limit=0.03) for frame in gfp])
-        cellbody = (gfp_eqd + dapi_eqd) / 2
-
-        sr = StackReg(StackReg.RIGID_BODY)
-        with warnings.catch_warnings(record=True) as w:
-            tmats = sr.register_stack(cellbody)
-            if len(w) > 0:
-                # if stackreg complains, the registration is probably bad.
-                # default to identity transforms
-                tmats = np.array([np.eye(3) for _ in range(cellbody.shape[0])])
-
-        intensity_transformed = sr.transform_stack(cellbody, tmats=tmats)
-        labels_transformed = np.array([transform.warp(frame, tmat, order=0, mode="edge") for frame, tmat in zip(nuc_labels, tmats)])
-        preds_transformed = np.array([transform.warp(frame, tmat, order=0, mode="edge") for frame, tmat in zip(preds, tmats)])
-        censor_borders = np.array([transform.warp(frame, tmat, order=0, mode="constant", cval=1) for frame, tmat in zip(np.zeros_like(nuc_labels), tmats)])
-        min_bb = np.max(censor_borders, axis=0).astype(bool)
 
         counts = []
-        for label_frame, pred_frame in zip(labels_transformed, preds_transformed):
+        for idx, (label_frame, pred_frame) in enumerate(zip(nuc_labels, preds)):
+
             count = 0
+            detections = []
             for props in regionprops(label_frame):
                 mask = label_frame == props.label
-                if np.logical_and(mask, min_bb).sum() > 0:
-                    continue
 
                 prediction = np.argmax(np.bincount(pred_frame[mask]))
-                if prediction == DEAD:
+                if prediction == LIVE:
+                    label = "live"
                     count += 1
+                elif prediction == DEAD:
+                    label = "dead"
+                else:  # censored
+                    continue
+
+                if dataset is not None:
+                    detections.append(
+                        fo.Detection.from_mask(mask, label=label))
+
+            if dataset is not None:
+                time = idx
+                region_id = str(field.squeeze()[Axes.REGION].values)
+                field_id = str(field.squeeze()[Axes.FIELD].values)
+                logger.info(f"Processing time {time}, region {region_id}, field {field_id}: {count} live cells detected")
+                dapi_sample = (
+                    dataset
+                    .filter_field(Axes.TIME.name, F() == time)
+                    .filter_field(Axes.REGION.name, F() == region_id)
+                    .filter_field(Axes.FIELD.name, F() == field_id)
+                    .filter_field(Axes.CHANNEL.name, F() == "DAPI")
+                    .first())
+                dapi_sample["predictions"] = fo.Detections(detections=detections)
+                dapi_sample.save()
 
             counts.append(count)
-
-        if annotation_dir is not None:
-            well_id = str(field[Axes.REGION].values[0])
-            field_id = str(field[Axes.FIELD].values[0])
-            output_path = annotation_dir / f"{well_id}_{field_id}.gif"
-
-            dead = labels_transformed.copy()
-            dead[np.where(preds_transformed == LIVE)] = 0
-
-            live = labels_transformed.copy()
-            live[np.where(preds_transformed == DEAD)] = 0
-
-            # stack and invert the minimum bounding box
-            censored_frames = []
-            for frame in labels_transformed:
-                censored_frame = frame.copy()
-                censored_ids = np.unique(frame[np.where(~min_bb)])
-                censored_frame[np.isin(frame, censored_ids)] = 0
-                censored_frames.append(censored_frame)
-            censored = np.array(censored_frames)
-
-            intensity_img = np.stack(3 * [intensity_transformed], axis=-1)
-            annotated = []
-            for intensity_frame, live_frame, dead_frame, censored_frame in zip(intensity_img, live, dead, censored):
-                marked_frame = mark_boundaries(intensity_frame, live_frame, color=(0, 1, 0))
-                marked_frame = mark_boundaries(marked_frame, dead_frame, color=(1, 0, 0))
-                marked_frame = mark_boundaries(marked_frame, censored_frame, color=(0, 0, 1))
-                marked_frame = rescale_intensity(marked_frame, out_range="uint8")
-                annotated.append(Image.fromarray(marked_frame))
-
-            frame_0 = annotated[0]
-            frame_0.save(
-                output_path, format='GIF', save_all=True,
-                append_images=annotated[1:], duration=500, loop=0)
 
         return xr.DataArray(
             data=np.array(counts).reshape(-1, 1, 1),
@@ -179,7 +151,7 @@ def run(
         experiment_path: Path,
         experiment_type: ExperimentType,
         svm_model_path: Path,
-        save_annotations: bool):
+        save_annotations: bool = False):
 
     client = get_client()
     logger.info(f"Connected to dask scheduler {client.scheduler}")
@@ -213,9 +185,11 @@ def run(
     results_dir = experiment_path / "results"
     results_dir.mkdir(exist_ok=True, parents=True)
 
-    if save_annotations:
-        annotation_dir = results_dir / "annotations"
-        annotation_dir.mkdir(exist_ok=True, parents=True)
+    dataset = None
+    if save_annotations and fo.dataset_exists(experiment_path.name):
+        dataset = fo.load_dataset(experiment_path.name)
+    elif save_annotations and not fo.dataset_exists(experiment_path.name):
+        logger.warn(f"Could not find dataset for {experiment_path.name}; did you run fiftyone ingest on your experiment? Annotations will not be saved.")
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     import tensorflow as tf
@@ -224,7 +198,7 @@ def run(
     model = StarDist2D.from_pretrained("2D_versatile_fluo")
 
     assert model is not None, "Could not load stardist model"
-    counts = quantify(intensity, model, classifier, annotation_dir=annotation_dir).load()
+    counts = quantify(intensity, model, classifier, dataset).load()
 
     rows = []
     for ts in iter_idx_prod(counts, ignore_dims=[Axes.TIME]):
