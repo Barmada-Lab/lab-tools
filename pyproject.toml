@@ -37,7 +37,6 @@ pystackreg = "^0.2.6"
 lifelines = "^0.27.8"
 largestinteriorrectangle = "^0.2.0"
 cvat-sdk = "2.10.0"
-stardist = "^0.8"
 pyarrow = "15.0.0"
 hdaf-filter = "^0.1.1"
 h5py = "^3.10.0"
@@ -46,8 +45,9 @@ more-itertools = "^10.2.0"
 celery = "^5.4.0"
 redis = "^5.0.4"
 pygithub = "^2.3.0"
-tensorflow = "2.15.0"
+stardist = "0.8.5"
 fiftyone = "^0.24.0"
+tensorflow = "2.15.1"
 
 [tool.poetry.group.dev]
 optional = true

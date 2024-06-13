@@ -59,6 +59,5 @@ logging.getLogger("distributed.nanny").setLevel(level=logging.WARN)
 logging.getLogger("distributed.scheduler").setLevel(level=logging.WARN)
 logging.getLogger("distributed.core").setLevel(level=logging.WARN)
 logging.getLogger("distributed.http").setLevel(level=logging.WARN)
-logging.getLogger("distributed.batched").setLevel(level=logging.WARN)
 
 dask.config.set({"distributed.scheduler.worker-ttl": "5m"})
