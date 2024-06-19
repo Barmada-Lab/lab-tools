@@ -57,6 +57,7 @@ flake8 = "^6.1.0"
 ipython = "^8.22.2"
 napari = "^0.4.19"
 pytest = "^8.2.1"
+imagecodecs = "^2024.6.1"
 
 [tool.poetry.group.macos]
 optional = true

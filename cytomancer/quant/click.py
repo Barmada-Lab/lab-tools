@@ -44,6 +44,17 @@ def train_pultra_classifier(cvat_project_name, experiment_dir: Path, experiment_
         logger.info(f"Saved classifier to {output_path}")
 
 
+@click.command("neurite-quant")
+@experiment_dir_argument()
+@experiment_type_argument()
+@click.option("--model-name", type=str, default="ilastish_neurite_seg.joblib", help="Path to ilastik model")
+def neurite_quant(experiment_dir: Path, experiment_type: ExperimentType, model_name: str):
+    model_path = config.models_dir / model_name
+
+    from cytomancer.quant.tasks import run_neurite_quant
+    run_neurite_quant.delay(str(experiment_dir), experiment_type, str(model_path))
+
+
 def register(cli: click.Group):
     @cli.group("quant", help="Tools for quantifying data")
     @click.pass_context
@@ -52,3 +63,4 @@ def register(cli: click.Group):
 
     quant_group.add_command(train_pultra_classifier)
     quant_group.add_command(pultra_survival)
+    quant_group.add_command(neurite_quant)
