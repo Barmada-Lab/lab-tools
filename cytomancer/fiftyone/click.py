@@ -26,7 +26,7 @@ def delete_dataset(dataset_name: str) -> None:
 @click.command("ingest", help="Ingest a CQ1 dataset into FiftyOne. Other formats are not yet supported.")
 @experiment_dir_argument()
 def ingest(experiment_dir: Path) -> None:
-    with Client(n_workers=8, threads_per_worker=2) as client:
+    with Client(n_workers=8, threads_per_worker=2) as client:  # noqa: F841
         from .ingest import ingest_cq1_longitudinal as ingest_fiftyone
         ingest_fiftyone(experiment_dir)
 
