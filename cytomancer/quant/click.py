@@ -3,6 +3,7 @@ import joblib
 from pathlib import Path
 import click
 
+from distributed import LocalCluster, Client
 from cytomancer.click_utils import experiment_dir_argument, experiment_type_argument
 from cytomancer.experiment import ExperimentType
 from cytomancer.config import config
@@ -15,14 +16,20 @@ logger = logging.getLogger(__name__)
 @experiment_dir_argument()
 @click.option("--classifier-name", default="nuclei_survival_svm.joblib", show_default=True, help="Name of pretrained StarDist model to use.")
 @click.option("--save-annotations", is_flag=True, help="Save annotated stacks to results folder")
-def pultra_survival(experiment_dir: Path, classifier_name, save_annotations: bool):
+@click.option("--run-sync", is_flag=True, help="Run the task synchronously, skipping the task queue.")
+def pultra_survival(experiment_dir: Path, classifier_name, save_annotations: bool, run_sync: bool):
     """
     Run pultra survival analysis on an experiment. Note that only CQ1 acquisitions are supported.
     """
     svm_path = config.models_dir / classifier_name
 
-    from cytomancer.quant.tasks import run_pultra_survival
-    run_pultra_survival.delay(str(experiment_dir), ExperimentType.CQ1, str(svm_path), save_annotations)
+    if run_sync:
+        from cytomancer.quant.pultra_survival import run
+        with LocalCluster(n_workers=8, threads_per_worker=3) as cluster, Client(cluster) as _:
+            run(experiment_dir, ExperimentType.CQ1, svm_path, save_annotations)
+    else:
+        from cytomancer.quant.tasks import run_pultra_survival
+        run_pultra_survival.delay(str(experiment_dir), ExperimentType.CQ1, str(svm_path), save_annotations)
 
 
 @click.command("train-pultra-classifier")
