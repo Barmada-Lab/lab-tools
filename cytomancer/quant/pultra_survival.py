@@ -163,9 +163,14 @@ def run(
         fmt = f"{dask_worker.id}|%(asctime)s|%(name)s|%(levelname)s: %(message)s"
         # disable GPU for workers. Although stardist is GPU accelerated, it's
         # faster to run many CPU workers in parallel
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
         logging.basicConfig(level=config.log_level, format=fmt)
-        logging.info(dask_worker.id)
+        logging.getLogger("dask").setLevel(level=logging.WARN)
+        logging.getLogger("distributed.nanny").setLevel(level=logging.WARN)
+        logging.getLogger("distributed.scheduler").setLevel(level=logging.WARN)
+        logging.getLogger("distributed.core").setLevel(level=logging.WARN)
+        logging.getLogger("distributed.http").setLevel(level=logging.WARN)
         import tensorflow as tf
         tf.config.threading.set_intra_op_parallelism_threads(3)
 
@@ -192,8 +197,9 @@ def run(
         logger.warn(f"Could not find dataset for {experiment_path.name}; did you run fiftyone ingest on your experiment? Annotations will not be saved.")
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     import tensorflow as tf
-    tf.config.threading.set_intra_op_parallelism_threads(2)
+    tf.config.threading.set_intra_op_parallelism_threads(3)
     from stardist.models import StarDist2D
     model = StarDist2D.from_pretrained("2D_versatile_fluo")
 
