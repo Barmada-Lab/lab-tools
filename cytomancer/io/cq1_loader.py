@@ -157,7 +157,7 @@ def get_tp_df(path: pl.Path, ome_xml_filename: str | None = None):  # noqa: C901
     ).sort_index(), shape, attrs
 
 
-def get_experiment_df(base_path: pl.Path, ordinal_time: bool = True) -> Tuple[pd.DataFrame, tuple, dict]:
+def get_experiment_df(base_path: pl.Path, ordinal_time: bool = False) -> Tuple[pd.DataFrame, tuple, dict]:
     """
     Indexes a CQ1 experiment directory by timepoint, channel, region, field, and z-slice.
 
@@ -197,7 +197,7 @@ def get_experiment_df(base_path: pl.Path, ordinal_time: bool = True) -> Tuple[pd
         df = pd.DataFrame()
         if any(dt_paths) and ordinal_time:
             for i, (_, path) in enumerate(dt_paths):
-                tp_df, tp_shape, tp_attrs = get_tp_df(path)  
+                tp_df, tp_shape, tp_attrs = get_tp_df(path)
                 assert shape is None or shape == tp_shape, f"Shape mismatch: {shape} vs {tp_shape}"
                 assert attrs is None or attrs == tp_attrs, f"Attribute mismatch: {attrs} vs {tp_attrs}"
                 shape, attrs = tp_shape, tp_attrs

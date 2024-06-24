@@ -32,7 +32,7 @@ def ingest_cq1_longitudinal(experiment_path: Path):
     dataset = fo.Dataset(name=experiment_name)
     dataset.persistent = True
 
-    df, _, _ = cq1_loader.get_experiment_df(experiment_path)
+    df, _, _ = cq1_loader.get_experiment_df(experiment_path, ordinal_time=True)
     axes = df.index.names
 
     def create_sample(coord_row):
