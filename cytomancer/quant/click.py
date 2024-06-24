@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @experiment_dir_argument()
 @click.option("--classifier-name", default="nuclei_survival_svm.joblib", show_default=True, help="Name of pretrained StarDist model to use.")
 @click.option("--save-annotations", is_flag=True, help="Save annotated stacks to results folder")
-@click.option("--run-sync", is_flat=True, help="Run the task synchronously, skipping the task queue.")
+@click.option("--run-sync", is_flag=True, help="Run the task synchronously, skipping the task queue.")
 def pultra_survival(experiment_dir: Path, classifier_name, save_annotations: bool, run_sync: bool):
     """
     Run pultra survival analysis on an experiment. Note that only CQ1 acquisitions are supported.
